@@ -1193,7 +1193,7 @@
   }
 
   // ── Sheet Search ─────────────────────────────────────────
-  // Always searches Column A, returns Column B value
+  // Searches Column A (strips all special chars & spaces), returns Column B (SKU) and Column C (Price)
   async function searchSheet(searchText) {
     if (!searchText.trim()) return;
     if (!config.sheetId || !config.apiKey) {
@@ -1209,62 +1209,54 @@
       const rows = data.values || [];
       if (rows.length === 0) { hideProcessing(); showToast('Sheet is empty'); return; }
 
-      // Normalise for fuzzy comparison — same OCR corrections as extractSKU
-      function normSearch(s) {
-        return s.toUpperCase()
-          .replace(/Q/g,'O').replace(/0/g,'O')
-          .replace(/1/g,'I').replace(/5/g,'S')
-          .replace(/8/g,'B').replace(/6/g,'G')
-          .replace(/[^A-Z0-9]/g,'');
+      // Normalize function: remove ALL special characters, spaces, underscores
+      function normalize(str) {
+        return str.toUpperCase().replace(/[^A-Z0-9]/g, '');
       }
 
-      // Split scanned text by _ and search each code part separately
-      const parts = searchText.split('_').map(p => normSearch(p)).filter(Boolean);
+      // Normalize the search input
+      const searchNorm = normalize(searchText);
+      console.log('Searching for (normalized):', searchNorm);
 
       let bestRow = null;
       let bestScore = 0;
 
-      // Start from row 1 to skip header row (row 0)
+      // Start from row 1 to skip header (row 0)
       const dataStart = (rows[0] && isNaN(rows[0][0])) ? 1 : 0;
 
       for (let i = dataStart; i < rows.length; i++) {
-        const cellRaw = (rows[i][0] || '').toString(); // Column A = index 0
-        const cellNorm = normSearch(cellRaw);
+        const cellRaw = (rows[i][0] || '').toString(); // Column A
+        const cellNorm = normalize(cellRaw);
+        
         if (!cellNorm) continue;
 
         let score = 0;
 
-        // Exact match on full scanned string (after normalisation)
-        const fullNorm = normSearch(searchText);
-        if (cellNorm === fullNorm) { score = 100; }
-        // Cell value matches the primary code (first part)
-        else if (parts[0] && cellNorm === parts[0]) { score = 90; }
-        // Cell contains the primary code
-        else if (parts[0] && cellNorm.includes(parts[0])) { score = 70; }
-        // Primary code contains the cell value (cell is shorter, like a base SKU)
-        else if (parts[0] && parts[0].includes(cellNorm) && cellNorm.length >= 6) { score = 60; }
-        // Any part matches
-        else {
-          for (const part of parts) {
-            if (part.length < 4) continue;
-            if (cellNorm.includes(part) || part.includes(cellNorm)) {
-              score = Math.max(score, 40);
-            }
-          }
+        // Exact match after normalization
+        if (cellNorm === searchNorm) {
+          score = 100;
+        }
+        // Cell contains search
+        else if (cellNorm.includes(searchNorm)) {
+          score = 70;
+        }
+        // Search contains cell (cell is shorter, like a base code)
+        else if (searchNorm.includes(cellNorm) && cellNorm.length >= 6) {
+          score = 60;
         }
 
         if (score > bestScore) {
           bestScore = score;
           bestRow = rows[i];
-          if (score === 100) break; // perfect match, stop
+          if (score === 100) break; // perfect match
         }
       }
 
       // Only accept matches with meaningful score
-      if (bestScore < 40) bestRow = null;
+      if (bestScore < 60) bestRow = null;
 
       hideProcessing();
-      showResult(searchText, bestRow, bestScore);
+      showResult(searchText, bestRow);
       addHistory(searchText, !!bestRow);
 
     } catch (e) {
@@ -1274,7 +1266,7 @@
     }
   }
 
-  function colLetterToIndex(col) {
+    function colLetterToIndex(col) {
     col = col.toUpperCase();
     let n = 0;
     for (let i = 0; i < col.length; i++) n = n * 26 + col.charCodeAt(i) - 64;
@@ -1282,8 +1274,8 @@
   }
 
   // ── Display Result ───────────────────────────────────────
-  // Shows Column A (matched key) and Column B (result value) only
-  function showResult(scannedText, row, score) {
+  // Shows Column A (matched), Column B (SKU), and Column C (Price)
+  function showResult(scannedText, row) {
     const card = document.getElementById('resultCard');
     const status = document.getElementById('resultStatus');
     const grid = document.getElementById('matchGrid');
@@ -1293,32 +1285,50 @@
 
     if (row) {
       const colA = row[0] || '—';   // matched key
-      const colB = row[1] || '—';   // result value
+      const colB = row[1] || '—';   // SKU
+      const colC = row[2] || '—';   // Price
 
       status.className = 'result-status found';
       status.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Match found`;
 
-      // Big prominent Column B result
-      const resultBox = document.createElement('div');
-      resultBox.style.cssText = `
+      // Big prominent SKU
+      const skuBox = document.createElement('div');
+      skuBox.style.cssText = `
         background: rgba(0,229,160,0.08);
         border: 1px solid rgba(0,229,160,0.3);
         border-radius: 12px;
         padding: 20px;
         text-align: center;
+        margin-bottom: 12px;
       `;
-      resultBox.innerHTML = `
-        <div style="font-family:'DM Mono',monospace;font-size:0.62rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px">Result</div>
+      skuBox.innerHTML = `
+        <div style="font-family:'DM Mono',monospace;font-size:0.62rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px">SKU</div>
         <div style="font-family:'Syne',sans-serif;font-size:1.6rem;font-weight:800;color:var(--accent);line-height:1.2;word-break:break-word">${escHtml(colB)}</div>
       `;
-      grid.appendChild(resultBox);
+      grid.appendChild(skuBox);
+
+      // Big prominent Price
+      const priceBox = document.createElement('div');
+      priceBox.style.cssText = `
+        background: rgba(123,97,255,0.08);
+        border: 1px solid rgba(123,97,255,0.3);
+        border-radius: 12px;
+        padding: 20px;
+        text-align: center;
+        margin-bottom: 12px;
+      `;
+      priceBox.innerHTML = `
+        <div style="font-family:'DM Mono',monospace;font-size:0.62rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px">Price</div>
+        <div style="font-family:'Syne',sans-serif;font-size:1.6rem;font-weight:800;color:var(--accent2);line-height:1.2;word-break:break-word">${escHtml(colC)}</div>
+      `;
+      grid.appendChild(priceBox);
 
       // Matched key (Col A) shown smaller below
       const keyRow = document.createElement('div');
       keyRow.className = 'match-row';
       keyRow.innerHTML = `
         <div class="match-key">Matched (Col A)</div>
-        <div class="match-val" style="font-family:'DM Mono',monospace">${escHtml(colA)}</div>`;
+        <div class="match-val" style="font-family:'DM Mono',monospace;font-size:0.75rem">${escHtml(colA)}</div>`;
       grid.appendChild(keyRow);
 
       // Scanned input
@@ -1326,7 +1336,7 @@
       scannedRow.className = 'match-row';
       scannedRow.innerHTML = `
         <div class="match-key">Scanned</div>
-        <div class="match-val" style="color:var(--text-dim);font-family:'DM Mono',monospace;font-size:0.78rem">${escHtml(scannedText.substring(0, 120))}</div>`;
+        <div class="match-val" style="color:var(--text-dim);font-family:'DM Mono',monospace;font-size:0.75rem">${escHtml(scannedText.substring(0, 120))}</div>`;
       grid.appendChild(scannedRow);
 
     } else {
@@ -1340,12 +1350,12 @@
 
       const hint = document.createElement('div');
       hint.style.cssText = 'font-size:0.78rem;color:var(--text-muted);line-height:1.6;padding:4px 0';
-      hint.textContent = 'Check your SKU prefix setting or edit the detected text and search again.';
+      hint.textContent = 'Check your sheet data or edit the detected text and search again.';
       grid.appendChild(hint);
     }
   }
 
-  // ── History ──────────────────────────────────────────────
+    // ── History ──────────────────────────────────────────────
   function addHistory(text, found) {
     const entry = { text, found, time: new Date().toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }) };
     scanHistory.unshift(entry);
