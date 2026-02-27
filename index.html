@@ -1296,7 +1296,6 @@
   }
 
   // ── Sheet Search ─────────────────────────────────────────
-  // Searches Column A (strips all special chars & spaces), returns Column B (SKU) and Column C (Price)
   async function searchSheet(searchText) {
     if (!searchText.trim()) return;
     if (!config.sheetId || !config.apiKey) {
@@ -1310,40 +1309,64 @@
     try {
       const data = await fetchSheet();
       const rows = data.values || [];
-      if (rows.length === 0) { hideProcessing(); showToast('Sheet is empty'); return; }
-
-      // Normalize function: remove ALL special characters, spaces, underscores
-      function normalize(str) {
-        return str.toUpperCase().replace(/[^A-Z0-9]/g, '');
+      
+      console.log('📊 Total rows in sheet:', rows.length);
+      
+      if (rows.length === 0) { 
+        hideProcessing(); 
+        showToast('Sheet is empty'); 
+        return; 
       }
 
-      // Normalize the search input
+      // Normalize: remove ALL special chars, spaces, underscores, everything except A-Z and 0-9
+      function normalize(str) {
+        const result = String(str).toUpperCase().replace(/[^A-Z0-9]/g, '');
+        return result;
+      }
+
       const searchNorm = normalize(searchText);
-      console.log('Searching for (normalized):', searchNorm);
+      console.log('🔍 SEARCH:');
+      console.log('  Original:', searchText);
+      console.log('  Normalized:', searchNorm);
 
       let bestRow = null;
       let bestScore = 0;
+      let matchedRowNum = -1;
 
-      // Start from row 1 to skip header (row 0)
+      // Start from row 1 (skip header if exists)
       const dataStart = (rows[0] && isNaN(rows[0][0])) ? 1 : 0;
 
+      console.log('🔎 Checking rows starting from row', dataStart);
+      console.log('Specifically checking row 4122...');
+
       for (let i = dataStart; i < rows.length; i++) {
-        const cellRaw = (rows[i][0] || '').toString(); // Column A
+        const cellRaw = (rows[i][0] || '').toString();
         const cellNorm = normalize(cellRaw);
+        
+        // Log row 4122 specifically
+        if (i === 4122) {
+          console.log('🎯 ROW 4122 FOUND:');
+          console.log('  Raw value:', cellRaw);
+          console.log('  Normalized:', cellNorm);
+          console.log('  Search normalized:', searchNorm);
+          console.log('  Match?', cellNorm === searchNorm);
+        }
         
         if (!cellNorm) continue;
 
         let score = 0;
 
-        // Exact match after normalization
+        // Exact match
         if (cellNorm === searchNorm) {
           score = 100;
+          console.log('✅ EXACT MATCH at row', i);
+          console.log('  Sheet value:', cellRaw, '→', cellNorm);
         }
         // Cell contains search
         else if (cellNorm.includes(searchNorm)) {
           score = 70;
         }
-        // Search contains cell (cell is shorter, like a base code)
+        // Search contains cell
         else if (searchNorm.includes(cellNorm) && cellNorm.length >= 6) {
           score = 60;
         }
@@ -1351,21 +1374,37 @@
         if (score > bestScore) {
           bestScore = score;
           bestRow = rows[i];
-          if (score === 100) break; // perfect match
+          matchedRowNum = i;
+          if (score === 100) {
+            console.log('Perfect match found, stopping search');
+            break;
+          }
         }
       }
 
-      // Only accept matches with meaningful score
-      if (bestScore < 60) bestRow = null;
+      console.log('📍 Search complete:');
+      console.log('  Best score:', bestScore);
+      console.log('  Matched row:', matchedRowNum);
+      console.log('  Row data:', bestRow);
+
+      if (bestScore < 60) {
+        console.log('❌ No match: score too low');
+        bestRow = null;
+      }
 
       hideProcessing();
+      
+      if (!bestRow) {
+        showToast('No match found. Check console for details.');
+      }
+      
       showResult(searchText, bestRow);
       addHistory(searchText, !!bestRow);
 
     } catch (e) {
       hideProcessing();
       showToast('Failed to fetch sheet data');
-      console.error(e);
+      console.error('❌ Search error:', e);
     }
   }
 
