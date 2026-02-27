@@ -1087,26 +1087,37 @@
   }
 
   function searchSelected() {
+    alert('searchSelected button clicked!');
+    console.log('=== searchSelected called ===');
+    console.log('selectionOrder:', selectionOrder);
+    
     if (selectionOrder.length === 0) {
+      console.log('ERROR: No items selected');
       showToast('Please select at least one text item');
       return;
     }
     
+    console.log('Config:', { sheetId: config.sheetId, apiKey: config.apiKey ? 'SET' : 'NOT SET' });
+    
     if (!config.sheetId || !config.apiKey) {
+      console.log('ERROR: Missing config');
       showToast('Configure your Google Sheet first');
       return;
     }
     
     const searchText = selectionOrder.join('_');
     
-    console.log('Searching with:', searchText);
+    console.log('Search text:', searchText);
+    console.log('Normalized:', searchText.toUpperCase().replace(/[^A-Z0-9]/g, ''));
     
     document.getElementById('textSelectionUI').style.display = 'none';
     document.getElementById('ocrEditInput').value = searchText;
     document.getElementById('ocrEditCard').style.display = 'block';
     
+    console.log('Calling searchSheet...');
     searchSheet(searchText);
   }
+
 
   function clearSelection() {
     const checkboxes = document.querySelectorAll('#wordCheckboxList input[type="checkbox"]');
