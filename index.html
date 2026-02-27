@@ -1310,7 +1310,7 @@
       const data = await fetchSheet();
       const rows = data.values || [];
       
-      console.log('📊 Total rows in sheet:', rows.length);
+      console.log('📊 Total rows:', rows.length);
       
       if (rows.length === 0) { 
         hideProcessing(); 
@@ -1318,56 +1318,60 @@
         return; 
       }
 
-      // Normalize: remove ALL special chars, spaces, underscores, everything except A-Z and 0-9
+      // Normalize: remove special chars
       function normalize(str) {
-        const result = String(str).toUpperCase().replace(/[^A-Z0-9]/g, '');
-        return result;
+        return String(str).toUpperCase().replace(/[^A-Z0-9]/g, '');
+      }
+
+      // Fuzzy normalize: also convert O↔0, I↔1 for OCR errors
+      function fuzzyNormalize(str) {
+        return normalize(str)
+          .replace(/O/g, '0')  // O becomes 0
+          .replace(/I/g, '1')  // I becomes 1
+          .replace(/S/g, '5')  // S becomes 5
+          .replace(/B/g, '8'); // B becomes 8
       }
 
       const searchNorm = normalize(searchText);
+      const searchFuzzy = fuzzyNormalize(searchText);
+      
       console.log('🔍 SEARCH:');
       console.log('  Original:', searchText);
       console.log('  Normalized:', searchNorm);
+      console.log('  Fuzzy:', searchFuzzy);
 
       let bestRow = null;
       let bestScore = 0;
       let matchedRowNum = -1;
 
-      // Start from row 1 (skip header if exists)
       const dataStart = (rows[0] && isNaN(rows[0][0])) ? 1 : 0;
-
-      console.log('🔎 Checking rows starting from row', dataStart);
-      console.log('Specifically checking row 4122...');
 
       for (let i = dataStart; i < rows.length; i++) {
         const cellRaw = (rows[i][0] || '').toString();
         const cellNorm = normalize(cellRaw);
-        
-        // Log row 4122 specifically
-        if (i === 4122) {
-          console.log('🎯 ROW 4122 FOUND:');
-          console.log('  Raw value:', cellRaw);
-          console.log('  Normalized:', cellNorm);
-          console.log('  Search normalized:', searchNorm);
-          console.log('  Match?', cellNorm === searchNorm);
-        }
+        const cellFuzzy = fuzzyNormalize(cellRaw);
         
         if (!cellNorm) continue;
 
         let score = 0;
 
-        // Exact match
+        // Try exact match first
         if (cellNorm === searchNorm) {
           score = 100;
-          console.log('✅ EXACT MATCH at row', i);
-          console.log('  Sheet value:', cellRaw, '→', cellNorm);
+          console.log('✅ EXACT match at row', i);
         }
-        // Cell contains search
-        else if (cellNorm.includes(searchNorm)) {
+        // Try fuzzy match (handles O/0, I/1 confusion)
+        else if (cellFuzzy === searchFuzzy) {
+          score = 95;
+          console.log('✅ FUZZY match at row', i, '(OCR correction)');
+          console.log('  Sheet:', cellRaw, '→', cellFuzzy);
+          console.log('  Search:', searchText, '→', searchFuzzy);
+        }
+        // Partial matches
+        else if (cellFuzzy.includes(searchFuzzy)) {
           score = 70;
         }
-        // Search contains cell
-        else if (searchNorm.includes(cellNorm) && cellNorm.length >= 6) {
+        else if (searchFuzzy.includes(cellFuzzy) && cellFuzzy.length >= 6) {
           score = 60;
         }
 
@@ -1375,27 +1379,20 @@
           bestScore = score;
           bestRow = rows[i];
           matchedRowNum = i;
-          if (score === 100) {
-            console.log('Perfect match found, stopping search');
-            break;
-          }
+          if (score >= 95) break; // Good enough match
         }
       }
 
-      console.log('📍 Search complete:');
-      console.log('  Best score:', bestScore);
-      console.log('  Matched row:', matchedRowNum);
-      console.log('  Row data:', bestRow);
+      console.log('📍 Result:', { score: bestScore, row: matchedRowNum });
 
-      if (bestScore < 60) {
-        console.log('❌ No match: score too low');
-        bestRow = null;
-      }
+      if (bestScore < 60) bestRow = null;
 
       hideProcessing();
       
-      if (!bestRow) {
-        showToast('No match found. Check console for details.');
+      if (bestRow) {
+        showToast('Match found!');
+      } else {
+        showToast('No match found');
       }
       
       showResult(searchText, bestRow);
@@ -1403,8 +1400,8 @@
 
     } catch (e) {
       hideProcessing();
-      showToast('Failed to fetch sheet data');
-      console.error('❌ Search error:', e);
+      showToast('Search failed: ' + e.message);
+      console.error('❌ Error:', e);
     }
   }
 
