@@ -4,7 +4,7 @@
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0, user-scalable=no" />
   <title>Product Scanner</title>
-  <link href="https://fonts.googleapis.com/css2?family=DM+Mono:wght@400;500&family=Syne:wght@700;800&family=DM+Sans:wght@300;400;500&display=swap" rel="stylesheet">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=Playfair+Display:wght@600;700&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
   <!-- OCR via API - no dependencies needed -->
   <style>
     :root {
@@ -27,7 +27,7 @@
     body {
       background: var(--bg);
       color: var(--text);
-      font-family: 'DM Sans', sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       min-height: 100dvh;
       display: flex;
       flex-direction: column;
@@ -69,7 +69,7 @@
     }
 
     .logo {
-      font-family: 'Syne', sans-serif;
+      font-family: 'Playfair Display', serif;
       font-weight: 800;
       font-size: 1.4rem;
       letter-spacing: -0.02em;
@@ -114,7 +114,7 @@
     }
 
     .card-label {
-      font-family: 'DM Mono', monospace;
+      font-family: 'JetBrains Mono', monospace;
       font-size: 0.65rem;
       letter-spacing: 0.15em;
       text-transform: uppercase;
@@ -155,7 +155,7 @@
       border: 1px solid var(--border);
       border-radius: var(--radius-sm);
       color: var(--text);
-      font-family: 'DM Mono', monospace;
+      font-family: 'JetBrains Mono', monospace;
       font-size: 0.8rem;
       padding: 10px 14px;
       width: 100%;
@@ -174,7 +174,7 @@
       border-radius: var(--radius-sm);
       color: white;
       cursor: pointer;
-      font-family: 'DM Sans', sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       font-size: 0.85rem;
       font-weight: 500;
       padding: 11px 20px;
@@ -294,7 +294,7 @@
       border: none;
       border-radius: var(--radius-sm);
       cursor: pointer;
-      font-family: 'DM Sans', sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
       font-weight: 500;
       font-size: 0.85rem;
       padding: 13px 16px;
@@ -386,7 +386,7 @@
       padding: 12px 14px;
     }
     .scanned-text-label {
-      font-family: 'DM Mono', monospace;
+      font-family: 'JetBrains Mono', monospace;
       font-size: 0.65rem;
       letter-spacing: 0.1em;
       text-transform: uppercase;
@@ -394,7 +394,7 @@
       margin-bottom: 6px;
     }
     .scanned-text-value {
-      font-family: 'DM Mono', monospace;
+      font-family: 'JetBrains Mono', monospace;
       font-size: 0.88rem;
       color: var(--text);
       line-height: 1.4;
@@ -416,7 +416,7 @@
       align-items: flex-start;
     }
     .match-key {
-      font-family: 'DM Mono', monospace;
+      font-family: 'JetBrains Mono', monospace;
       font-size: 0.7rem;
       color: var(--text-muted);
       text-transform: uppercase;
@@ -443,7 +443,7 @@
       padding: 12px 14px;
     }
     .ocr-edit-box label {
-      font-family: 'DM Mono', monospace;
+      font-family: 'JetBrains Mono', monospace;
       font-size: 0.65rem;
       letter-spacing: 0.1em;
       text-transform: uppercase;
@@ -468,7 +468,7 @@
       padding: 10px 14px;
       transition: all 0.2s;
       white-space: nowrap;
-      font-family: 'DM Sans', sans-serif;
+      font-family: 'Inter', -apple-system, BlinkMacSystemFont, sans-serif;
     }
     .btn-search-manual:hover { border-color: var(--accent); color: var(--accent); }
 
@@ -498,7 +498,7 @@
     .history-dot.found { background: var(--accent); }
     .history-dot.not-found { background: var(--warn); }
     .history-text {
-      font-family: 'DM Mono', monospace;
+      font-family: 'JetBrains Mono', monospace;
       font-size: 0.78rem;
       color: var(--text-dim);
       flex: 1;
@@ -594,7 +594,7 @@
       accent-color: var(--accent);
     }
     .word-text {
-      font-family: 'DM Mono', monospace;
+      font-family: 'JetBrains Mono', monospace;
       font-size: 0.88rem;
       color: var(--text);
       flex: 1;
@@ -1087,7 +1087,6 @@
   }
 
   function searchSelected() {
-    alert('searchSelected button clicked!');
     console.log('=== searchSelected called ===');
     console.log('selectionOrder:', selectionOrder);
     
@@ -1272,7 +1271,7 @@
     if (extracted) {
       const parts = extracted.split('_');
       const chips = parts.map(p =>
-        `<span style="display:inline-block;background:rgba(0,229,160,0.12);border:1px solid rgba(0,229,160,0.35);color:var(--accent);font-family:'DM Mono',monospace;font-size:0.78rem;padding:2px 8px;border-radius:4px;margin:2px 3px 2px 0">${escHtml(p)}</span>`
+        `<span style="display:inline-block;background:rgba(0,229,160,0.12);border:1px solid rgba(0,229,160,0.35);color:var(--accent);font-family:'JetBrains Mono',monospace;font-size:0.78rem;padding:2px 8px;border-radius:4px;margin:2px 3px 2px 0">${escHtml(p)}</span>`
       ).join('<span style="color:var(--text-muted);font-size:0.8rem;margin:0 2px">+</span>');
 
       const detail = document.createElement('div');
@@ -1441,8 +1440,8 @@
         margin-bottom: 12px;
       `;
       skuBox.innerHTML = `
-        <div style="font-family:'DM Mono',monospace;font-size:0.62rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px">SKU</div>
-        <div style="font-family:'Syne',sans-serif;font-size:1.6rem;font-weight:800;color:var(--accent);line-height:1.2;word-break:break-word">${escHtml(colB)}</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.62rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px">SKU</div>
+        <div style="font-family:'Playfair Display',sans-serif;font-size:1.8rem;font-weight:600;letter-spacing:-0.02em;color:var(--accent);line-height:1.2;word-break:break-word">${escHtml(colB)}</div>
       `;
       grid.appendChild(skuBox);
 
@@ -1457,8 +1456,8 @@
         margin-bottom: 12px;
       `;
       priceBox.innerHTML = `
-        <div style="font-family:'DM Mono',monospace;font-size:0.62rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px">Price</div>
-        <div style="font-family:'Syne',sans-serif;font-size:1.6rem;font-weight:800;color:var(--accent2);line-height:1.2;word-break:break-word">${escHtml(colC)}</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.62rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px">MSRP</div>
+        <div style="font-family:'Playfair Display',sans-serif;font-size:1.8rem;font-weight:600;letter-spacing:-0.02em;color:var(--accent2);line-height:1.2;word-break:break-word">${escHtml(colC)}</div>
       `;
       grid.appendChild(priceBox);
 
@@ -1467,7 +1466,7 @@
       keyRow.className = 'match-row';
       keyRow.innerHTML = `
         <div class="match-key">Matched (Col A)</div>
-        <div class="match-val" style="font-family:'DM Mono',monospace;font-size:0.75rem">${escHtml(colA)}</div>`;
+        <div class="match-val" style="font-family:'JetBrains Mono',monospace;font-size:0.75rem">${escHtml(colA)}</div>`;
       grid.appendChild(keyRow);
 
       // Scanned input
@@ -1475,7 +1474,7 @@
       scannedRow.className = 'match-row';
       scannedRow.innerHTML = `
         <div class="match-key">Scanned</div>
-        <div class="match-val" style="color:var(--text-dim);font-family:'DM Mono',monospace;font-size:0.75rem">${escHtml(scannedText.substring(0, 120))}</div>`;
+        <div class="match-val" style="color:var(--text-dim);font-family:'JetBrains Mono',monospace;font-size:0.75rem">${escHtml(scannedText.substring(0, 120))}</div>`;
       grid.appendChild(scannedRow);
 
     } else {
@@ -1484,7 +1483,7 @@
 
       const el = document.createElement('div');
       el.className = 'match-row';
-      el.innerHTML = `<div class="match-key">Scanned</div><div class="match-val" style="color:var(--text-dim);font-family:'DM Mono',monospace">${escHtml(scannedText.substring(0, 120))}</div>`;
+      el.innerHTML = `<div class="match-key">Scanned</div><div class="match-val" style="color:var(--text-dim);font-family:'JetBrains Mono',monospace">${escHtml(scannedText.substring(0, 120))}</div>`;
       grid.appendChild(el);
 
       const hint = document.createElement('div');
