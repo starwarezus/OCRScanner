@@ -993,7 +993,10 @@
         return;
       }
       
-      showTextSelectionList();
+            // Hide captured image to save space
+      document.getElementById('capturedImg').classList.remove('visible');
+      
+showTextSelectionList();
 
     } catch (e) {
       hideProcessing();
