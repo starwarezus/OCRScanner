@@ -1002,12 +1002,15 @@
     }
   }
 
-    function showTextSelectionList() {
+    let selectionOrder = []; // Track order of selection
+
+  function showTextSelectionList() {
     const ui = document.getElementById('textSelectionUI');
     const list = document.getElementById('wordCheckboxList');
     
     ui.style.display = 'block';
     list.innerHTML = '';
+    selectionOrder = []; // Reset order
     
     // Sort: codes (letters+numbers) first, then rest
     const sorted = detectedWords.sort((a, b) => {
@@ -1024,27 +1027,116 @@
       const item = document.createElement('label');
       item.className = 'word-checkbox-item';
       item.innerHTML = `
-        <input type="checkbox" id="word_${idx}" value="${escHtml(word)}" ${isCode ? 'checked' : ''} onchange="updateSelectionCount()">
+        <input type="checkbox" id="word_${idx}" value="${escHtml(word)}" ${isCode ? 'checked' : ''} onchange="handleCheckboxChange(this)">
         <span class="word-text ${isCode ? 'is-code' : ''}">${escHtml(word)}</span>
+        <span class="order-badge" id="badge_${idx}" style="display:none;margin-left:auto;background:var(--accent);color:#000;font-size:0.7rem;padding:2px 6px;border-radius:4px;font-weight:700"></span>
       `;
       list.appendChild(item);
+    });
+    
+    // Pre-populate order for auto-checked codes
+    document.querySelectorAll('#wordCheckboxList input[type="checkbox"]:checked').forEach(cb => {
+      selectionOrder.push(cb.value);
     });
     
     updateSelectionCount();
   }
   
-  function updateSelectionCount() {
-    const checkboxes = document.querySelectorAll('#wordCheckboxList input[type="checkbox"]');
-    const checked = Array.from(checkboxes).filter(cb => cb.checked);
+  function handleCheckboxChange(checkbox) {
+    const value = checkbox.value;
+    const badge = document.getElementById('badge_' + checkbox.id.split('_')[1]);
+    
+    if (checkbox.checked) {
+      // Add to order if not already there
+      if (!selectionOrder.includes(value)) {
+        selectionOrder.push(value);
+      }
+      // Show order number
+      const orderNum = selectionOrder.indexOf(value) + 1;
+      badge.textContent = orderNum;
+      badge.style.display = 'inline-block';
+    } else {
+      // Remove from order
+      const idx = selectionOrder.indexOf(value);
+      if (idx > -1) {
+        selectionOrder.splice(idx, 1);
+      }
+      badge.style.display = 'none';
+      
+      // Update all other badges
+      document.querySelectorAll('#wordCheckboxList input[type="checkbox"]:checked').forEach(cb => {
+        const cbValue = cb.value;
+        const cbBadge = document.getElementById('badge_' + cb.id.split('_')[1]);
+        const orderNum = selectionOrder.indexOf(cbValue) + 1;
+        cbBadge.textContent = orderNum;
+      });
+    }
+    
+    updateSelectionCount();
+  }
+
+    function updateSelectionCount() {
     const summary = document.getElementById('selectionSummary');
     
-    if (checked.length === 0) {
+    if (selectionOrder.length === 0) {
       summary.innerHTML = '<span style="color:var(--text-muted)">Select at least one item</span>';
     } else {
-      const words = checked.map(cb => cb.value).join(' + ');
-      summary.innerHTML = `<span style="color:var(--accent);font-weight:600">${checked.length} selected:</span> <span style="font-family:monospace;font-size:0.8rem">${words}</span>`;
+      const words = selectionOrder.join(' + ');
+      summary.innerHTML = `<span style="color:var(--accent);font-weight:600">${selectionOrder.length} selected:</span> <span style="font-family:monospace;font-size:0.8rem">${words}</span>`;
     }
   }
+
+  function searchSelected() {
+    if (selectionOrder.length === 0) {
+      showToast('Please select at least one text item');
+      return;
+    }
+    
+    if (!config.sheetId || !config.apiKey) {
+      showToast('Configure your Google Sheet first');
+      return;
+    }
+    
+    const searchText = selectionOrder.join('_');
+    
+    console.log('Searching with:', searchText);
+    
+    document.getElementById('textSelectionUI').style.display = 'none';
+    document.getElementById('ocrEditInput').value = searchText;
+    document.getElementById('ocrEditCard').style.display = 'block';
+    
+    searchSheet(searchText);
+  }
+
+  function clearSelection() {
+    const checkboxes = document.querySelectorAll('#wordCheckboxList input[type="checkbox"]');
+    checkboxes.forEach(cb => cb.checked = false);
+    selectionOrder = [];
+    document.querySelectorAll('.order-badge').forEach(b => b.style.display = 'none');
+    updateSelectionCount();
+  }
+  
+  function selectAllCodes() {
+    selectionOrder = [];
+    const checkboxes = document.querySelectorAll('#wordCheckboxList input[type="checkbox"]');
+    checkboxes.forEach(cb => {
+      const word = cb.value;
+      const isCode = /[A-Z]/.test(word) && /[0-9]/.test(word) && word.length >= 4;
+      cb.checked = isCode;
+      if (isCode) {
+        selectionOrder.push(word);
+        const badge = document.getElementById('badge_' + cb.id.split('_')[1]);
+        const orderNum = selectionOrder.indexOf(word) + 1;
+        badge.textContent = orderNum;
+        badge.style.display = 'inline-block';
+      } else {
+        const badge = document.getElementById('badge_' + cb.id.split('_')[1]);
+        badge.style.display = 'none';
+      }
+    });
+    updateSelectionCount();
+  }
+
 
     // ── SKU Extraction ───────────────────────────────────────
   function extractSKU(rawText) {
