@@ -634,11 +634,13 @@
           <!-- SellerCloud Info (shown when SellerCloud selected) -->
           <div id="sellercloudInfo" style="margin-top:16px;padding:16px;background:rgba(0,229,160,0.08);border:1px solid rgba(0,229,160,0.25);border-radius:10px">
             <div style="font-weight:600;color:var(--accent);margin-bottom:6px">✓ SellerCloud Connected</div>
-            <div style="font-size:0.78rem;color:var(--text-dim);line-height:1.5">
+            <div style="font-size:0.78rem;color:var(--text-dim);line-height:1.5;margin-bottom:12px">
               Endpoint: blny.api.sellercloud.com<br>
               Token: Auto-managed (refreshes hourly)<br>
               Search field: Manufacturer SKU
             </div>
+            <button class="connect-btn" onclick="testSellerCloudConnection()" style="font-size:0.82rem;padding:10px 16px">Test API Connection</button>
+            <div id="scTestResult" style="margin-top:10px;font-size:0.75rem;display:none"></div>
           </div>
 
           <!-- Google Sheets Config (shown when Google Sheets selected) -->
@@ -870,6 +872,54 @@
   });
 
   // ── Config Save ─────────────────────────────────────────
+
+  async function testSellerCloudConnection() {
+    const resultDiv = document.getElementById('scTestResult');
+    resultDiv.style.display = 'block';
+    resultDiv.innerHTML = '<span style="color:var(--text-dim)">Testing connection...</span>';
+    
+    try {
+      console.log('🧪 Testing SellerCloud connection...');
+      
+      // Get token
+      const token = await getSellerCloudToken();
+      console.log('✅ Token obtained');
+      
+      // Try to fetch any product - use a simple search that should return results
+      const testUrl = `${SELLERCLOUD.baseUrl}/Catalog?model.pageSize=1&model.pageNumber=1`;
+      
+      console.log('📡 Calling:', testUrl);
+      
+      const response = await fetch(testUrl, {
+        method: 'GET',
+        headers: {
+          'Accept': 'application/json',
+          'Authorization': `Bearer ${token}`
+        }
+      });
+      
+      console.log('📥 Response status:', response.status);
+      
+      if (!response.ok) {
+        throw new Error(`API returned ${response.status}: ${response.statusText}`);
+      }
+      
+      const data = await response.json();
+      console.log('📦 Response data:', data);
+      
+      const itemCount = data.Items ? data.Items.length : 0;
+      const totalResults = data.TotalResults || 0;
+      
+      resultDiv.innerHTML = `<span style="color:var(--accent)">✓ Connection successful!</span><br><span style="color:var(--text-dim);font-size:0.7rem">Found ${totalResults} total products in catalog. API is working.</span>`;
+      showToast('SellerCloud API connected successfully!');
+      
+    } catch (e) {
+      console.error('❌ SellerCloud test failed:', e);
+      resultDiv.innerHTML = `<span style="color:var(--warn)">✗ Connection failed</span><br><span style="color:var(--text-dim);font-size:0.7rem">${e.message}</span>`;
+      showToast('SellerCloud connection failed');
+    }
+  }
+
   function switchDataSource() {
     dataSource = document.getElementById('dataSource').value;
     
