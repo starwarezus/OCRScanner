@@ -604,9 +604,7 @@
       font-weight: 600;
     }
   </style>
-  <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
-  <script>eruda.init();</script>
-</head>
+  </head>
 <body>
 <div class="container">
 
@@ -790,23 +788,6 @@
 <div class="toast" id="toast"></div>
 
 <script>
-  // ✅ SCRIPT LOADED
-  console.log('✅ JavaScript loaded successfully');
-  
-  // Test if button click works at all
-  window.addEventListener('DOMContentLoaded', () => {
-    console.log('✅ DOM loaded');
-    const btn = document.getElementById('startCamBtn');
-    if (btn) {
-      console.log('✅ Start button found');
-      btn.addEventListener('click', () => {
-        console.log('🎯 Button clicked!');
-      });
-    } else {
-      console.error('❌ Start button NOT found');
-    }
-  });
-
   // ── Config ──────────────────────────────────────────────
   // ── Hardcoded defaults ───────────────────────────────────
   const DEFAULTS = {
@@ -955,16 +936,6 @@
 
   // ── Camera ───────────────────────────────────────────────
   async function startCamera() {
-    console.log('🎥 startCamera called');
-    
-    // Check if getUserMedia exists
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
-      alert('Camera API not available. Are you on HTTPS?');
-      showToast('Camera not supported on this browser/connection');
-      return;
-    }
-    
-    console.log('📱 Requesting camera access...');
     try {
       stream = await navigator.mediaDevices.getUserMedia({
         video: { facingMode: { ideal: 'environment' }, width: { ideal: 1280 }, height: { ideal: 960 } }
@@ -978,8 +949,6 @@
       document.getElementById('startCamBtn').textContent = 'Stop Camera';
       document.getElementById('startCamBtn').onclick = stopCamera;
     } catch (e) {
-      console.error('❌ Camera error:', e);
-      alert('Camera failed: ' + e.message);
       showToast('Camera access denied — try uploading an image');
     }
   }
