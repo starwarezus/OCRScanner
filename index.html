@@ -604,6 +604,8 @@
       font-weight: 600;
     }
   </style>
+  <script src="https://cdn.jsdelivr.net/npm/eruda"></script>
+  <script>eruda.init();</script>
 </head>
 <body>
 <div class="container">
@@ -788,6 +790,23 @@
 <div class="toast" id="toast"></div>
 
 <script>
+  // ✅ SCRIPT LOADED
+  console.log('✅ JavaScript loaded successfully');
+  
+  // Test if button click works at all
+  window.addEventListener('DOMContentLoaded', () => {
+    console.log('✅ DOM loaded');
+    const btn = document.getElementById('startCamBtn');
+    if (btn) {
+      console.log('✅ Start button found');
+      btn.addEventListener('click', () => {
+        console.log('🎯 Button clicked!');
+      });
+    } else {
+      console.error('❌ Start button NOT found');
+    }
+  });
+
   // ── Config ──────────────────────────────────────────────
   // ── Hardcoded defaults ───────────────────────────────────
   const DEFAULTS = {
@@ -798,12 +817,9 @@
     skuPrefix:  ''
   };
 
-  // ── Data Source Configuration ────────────────────────────
-  let dataSource = 'sellercloud'; // 'sellercloud' or 'googlesheets'
+  // ── Data Source Configuration  let dataSource = 'sellercloud'; // 'sellercloud' or 'googlesheets'
 
-  // ── SellerCloud Configuration ────────────────────────────
- ────────────────────────────
-  // TODO: SECURITY WARNING - Move credentials to secure backend proxy!
+  // ── SellerCloud Configuration  // TODO: SECURITY WARNING - Move credentials to secure backend proxy!
   // These credentials are visible in client-side code
   const SELLERCLOUD = {
     baseUrl: 'https://blny.api.sellercloud.com/rest/api',
