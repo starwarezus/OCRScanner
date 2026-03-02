@@ -1418,7 +1418,15 @@ showTextSelectionList();
 
   // ── Search (Routes to Selected Data Source) ─────────────
   async function searchSheet(searchText) {
-    console.log('🔍 Current dataSource:', dataSource);
+    // FORCE: Always read from dropdown before searching
+    const dropdown = document.getElementById('dataSource');
+    if (dropdown) {
+      dataSource = dropdown.value;
+      localStorage.setItem('scanmatch_datasource', dataSource);
+    }
+    
+    console.log('🔍 Searching with dataSource:', dataSource);
+    console.log('🔍 Dropdown value:', dropdown ? dropdown.value : 'not found');
     
     if (dataSource === 'sellercloud') {
       console.log('→ Routing to SellerCloud');
