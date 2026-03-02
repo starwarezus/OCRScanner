@@ -617,37 +617,58 @@
   <!-- Step 1: Google Sheets Setup -->
   <div class="card">
     <div class="collapsible-header" id="setupToggle">
-      <div class="card-label" style="margin-bottom:0; flex:1">01 — Google Sheet Setup</div>
+      <div class="card-label" style="margin-bottom:0; flex:1">01 — SellerCloud Connection</div>
       <svg class="chevron" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
     </div>
     <div class="collapsible-body open" id="setupBody">
       <div class="collapsible-inner">
         <div class="input-group">
           <div class="input-row">
-            <div class="input-label">Spreadsheet ID</div>
-            <input type="text" id="sheetId" placeholder="1B06wtCaglwTVbR1_gHpzaLZdngh-tziq0nHwJBsgidM" />
+            <div class="input-label">Data Source</div>
+            <select id="dataSource" onchange="switchDataSource()" style="padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.9rem;width:100%">
+              <option value="sellercloud">SellerCloud API</option>
+              <option value="googlesheets">Google Sheets</option>
+            </select>
           </div>
-          <div class="input-row">
-            <div class="input-label">Sheet Name + Range</div>
-            <input type="text" id="sheetRange" placeholder="Sheet1!A:Z" value="Sheet1!A:Z" />
+
+          <!-- SellerCloud Info (shown when SellerCloud selected) -->
+          <div id="sellercloudInfo" style="margin-top:16px;padding:16px;background:rgba(0,229,160,0.08);border:1px solid rgba(0,229,160,0.25);border-radius:10px">
+            <div style="font-weight:600;color:var(--accent);margin-bottom:6px">✓ SellerCloud Connected</div>
+            <div style="font-size:0.78rem;color:var(--text-dim);line-height:1.5">
+              Endpoint: blny.api.sellercloud.com<br>
+              Token: Auto-managed (refreshes hourly)<br>
+              Search field: Manufacturer SKU
+            </div>
           </div>
-          <div class="input-row">
-            <div class="input-label">Column to match against (letter)</div>
-            <input type="text" id="matchCol" placeholder="A" value="A" maxlength="2" />
+
+          <!-- Google Sheets Config (shown when Google Sheets selected) -->
+          <div id="googlesheetsConfig" style="margin-top:16px;display:none">
+            <div class="input-row">
+              <div class="input-label">Spreadsheet ID</div>
+              <input type="text" id="sheetId" placeholder="1B06wtCaglwTVbR1_gHpzaLZdngh-tziq0nHwJBsgidM" />
+            </div>
+            <div class="input-row">
+              <div class="input-label">Sheet Range</div>
+              <input type="text" id="sheetRange" placeholder="Sheet1!A:Z" value="Sheet1!A:Z" />
+            </div>
+            <div class="input-row">
+              <div class="input-label">Match Column (letter)</div>
+              <input type="text" id="matchCol" placeholder="A" value="A" maxlength="2" />
+            </div>
+            <div class="input-row">
+              <div class="input-label">API Key</div>
+              <input type="text" id="apiKey" placeholder="AIzaSyCTpRFveYpDvwAJvSyWk1mbMAkROw_vtBM" />
+            </div>
+            <button class="connect-btn" onclick="testGoogleSheets()">Test Connection</button>
           </div>
-          <div class="input-row">
-            <div class="input-label">API Key <span style="color:var(--text-muted)">(from Google Cloud Console)</span></div>
-            <input type="text" id="apiKey" placeholder="AIzaSyCTpRFveYpDvwAJvSyWk1mbMAkROw_vtBM" />
-          </div>
-          <div class="input-row">
-            <div class="input-label">SKU Prefix Filter <span style="color:var(--text-muted)">(starting letters of your main code, comma-separated)</span></div>
+
+          <div class="input-row" style="margin-top:16px">
+            <div class="input-label">SKU Prefix Filter <span style="color:var(--text-muted)">(optional)</span></div>
             <input type="text" id="skuPrefix" placeholder="e.g. SNZU,PAMA,GIMA" />
-            <div class="help-text" style="margin-top:5px">The app will extract your main SKU <b style="color:var(--text-dim)">plus</b> all secondary codes (like colour/season codes) and join them with <b style="color:var(--accent)">_</b> automatically. Example: <span style="font-family:monospace;color:var(--accent)">SNZU002002_00W01</span></div>
           </div>
-          <button class="connect-btn" onclick="saveConfig()">Save & Test Connection</button>
           <div class="help-text">
-            Make your sheet publicly readable: Share → Anyone with the link → Viewer.<br>
-            Get a free API key at <a href="https://console.cloud.google.com" target="_blank">console.cloud.google.com</a> (enable Google Sheets API).
+            <strong style="color:var(--accent)">✓ Connected to SellerCloud</strong><br>
+            Token auto-refreshes every hour. All product data pulled from SellerCloud API.
           </div>
         </div>
       </div>
@@ -777,8 +798,31 @@
     skuPrefix:  ''
   };
 
-  let config = { ...DEFAULTS };
-  let stream = null;
+  // ── Data Source Configuration ────────────────────────────
+  let dataSource = 'sellercloud'; // 'sellercloud' or 'googlesheets'
+
+  // ── SellerCloud Configuration ────────────────────────────
+ ────────────────────────────
+  // TODO: SECURITY WARNING - Move credentials to secure backend proxy!
+  // These credentials are visible in client-side code
+  const SELLERCLOUD = {
+    baseUrl: 'https://blny.api.sellercloud.com/rest/api',
+    username: 'henry@goldlabelny.com',
+    password: 'Corishabt1987!!',
+    token: null,
+    tokenExpiry: null
+  };
+
+  let config = {
+    // Google Sheets config
+    sheetId: '1B06wtCaglwTVbR1_gHpzaLZdngh-tziq0nHwJBsgidM',
+    apiKey: 'AIzaSyCTpRFveYpDvwAJvSyWk1mbMAkROw_vtBM',
+    sheetRange: 'Sheet1!A:Z',
+    matchCol: 'A',
+    skuPrefix: ''
+  };
+
+    let stream = null;
   let scanHistory = [];
   let headers = [];
 
@@ -786,7 +830,7 @@
   (function loadSaved() {
     const saved = localStorage.getItem('scanmatch_config');
     if (saved) {
-      config = { ...DEFAULTS, ...JSON.parse(saved) };
+      // SellerCloud always connected
     }
     // Always populate fields from config (defaults or saved)
     document.getElementById('sheetId').value    = config.sheetId;
@@ -829,38 +873,68 @@
   });
 
   // ── Config Save ─────────────────────────────────────────
-  async function saveConfig() {
+  function switchDataSource() {
+    dataSource = document.getElementById('dataSource').value;
+    
+    // Show/hide relevant config sections
+    if (dataSource === 'sellercloud') {
+      document.getElementById('sellercloudInfo').style.display = 'block';
+      document.getElementById('googlesheetsConfig').style.display = 'none';
+      document.getElementById('statusDot').classList.add('connected');
+    } else {
+      document.getElementById('sellercloudInfo').style.display = 'none';
+      document.getElementById('googlesheetsConfig').style.display = 'block';
+      
+      // Check if Google Sheets is configured
+      if (config.sheetId && config.apiKey) {
+        document.getElementById('statusDot').classList.add('connected');
+      } else {
+        document.getElementById('statusDot').classList.remove('connected');
+      }
+    }
+    
+    localStorage.setItem('scanmatch_datasource', dataSource);
+    showToast(`Switched to ${dataSource === 'sellercloud' ? 'SellerCloud' : 'Google Sheets'}`);
+  }
+
+  async function testGoogleSheets() {
     config.sheetId = document.getElementById('sheetId').value.trim();
+    config.apiKey = document.getElementById('apiKey').value.trim();
     config.sheetRange = document.getElementById('sheetRange').value.trim() || 'Sheet1!A:Z';
     config.matchCol = document.getElementById('matchCol').value.trim().toUpperCase() || 'A';
-    config.apiKey = document.getElementById('apiKey').value.trim();
-    config.skuPrefix = document.getElementById('skuPrefix').value.trim().toUpperCase();
 
     if (!config.sheetId || !config.apiKey) {
-      showToast('Please fill in Sheet ID and API Key');
+      showToast('Please enter Sheet ID and API Key');
       return;
     }
-    showProcessing('Testing connection...');
+
+    showProcessing('Testing Google Sheets...');
     try {
-      const data = await fetchSheet();
-      headers = data.values ? data.values[0] : [];
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${config.sheetId}/values/${encodeURIComponent(config.sheetRange)}?key=${config.apiKey}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Connection failed');
+      const data = await res.json();
+      
       localStorage.setItem('scanmatch_config', JSON.stringify(config));
       document.getElementById('statusDot').classList.add('connected');
       hideProcessing();
-      showToast(`✓ Connected — ${data.values ? data.values.length - 1 : 0} rows loaded`);
+      showToast(`✓ Connected — ${data.values ? data.values.length - 1 : 0} rows found`);
       collapseSetup();
     } catch (e) {
       hideProcessing();
-      showToast('Connection failed — check ID & API key');
       document.getElementById('statusDot').classList.remove('connected');
+      showToast('Connection failed — check credentials');
     }
   }
 
+  // SellerCloud is always connected - no manual config needed
+
+  async function saveConfig() {
+    // Not used - SellerCloud connection is automatic
+  }
+
   async function fetchSheet() {
-    const url = `https://sheets.googleapis.com/v4/spreadsheets/${config.sheetId}/values/${encodeURIComponent(config.sheetRange)}?key=${config.apiKey}`;
-    const res = await fetch(url);
-    if (!res.ok) throw new Error('Sheet fetch failed');
-    return res.json();
+    // Not used - replaced by SellerCloud API
   }
 
   // ── Camera ───────────────────────────────────────────────
@@ -923,7 +997,59 @@
     reader.readAsDataURL(file);
   }
 
-  // ── OCR with Simple Checkbox Selection ──────────────────
+  // ── SellerCloud Token Management ─────────────────────────
+  async function getSellerCloudToken() {
+    // Check if we have a valid token
+    if (SELLERCLOUD.token && SELLERCLOUD.tokenExpiry) {
+      const now = Date.now();
+      const timeLeft = SELLERCLOUD.tokenExpiry - now;
+      // If more than 5 minutes left, use existing token
+      if (timeLeft > 5 * 60 * 1000) {
+        console.log('Using existing SellerCloud token');
+        return SELLERCLOUD.token;
+      }
+    }
+
+    // Generate new token
+    console.log('Generating new SellerCloud token...');
+    try {
+      const response = await fetch(`${SELLERCLOUD.baseUrl}/token`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          Username: SELLERCLOUD.username,
+          Password: SELLERCLOUD.password
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Token request failed: ${response.status}`);
+      }
+
+      const data = await response.json();
+      
+      if (!data.access_token) {
+        throw new Error('No access_token in response');
+      }
+
+      // Store token and expiry (1 hour from now)
+      SELLERCLOUD.token = data.access_token;
+      SELLERCLOUD.tokenExpiry = Date.now() + (55 * 60 * 1000); // 55 minutes
+      
+      console.log('SellerCloud token generated successfully');
+      return SELLERCLOUD.token;
+
+    } catch (e) {
+      console.error('Failed to get SellerCloud token:', e);
+      showToast('SellerCloud authentication failed');
+      throw e;
+    }
+  }
+
+    // ── OCR with Simple Checkbox Selection ──────────────────
   let detectedWords = []; // stores detected text items
 
   async function runOCR(imageData) {
@@ -1101,11 +1227,7 @@ showTextSelectionList();
     
     console.log('Config:', { sheetId: config.sheetId, apiKey: config.apiKey ? 'SET' : 'NOT SET' });
     
-    if (!config.sheetId || !config.apiKey) {
-      console.log('ERROR: Missing config');
-      showToast('Configure your Google Sheet first');
-      return;
-    }
+    // SellerCloud is always available - no config check needed
     
     const searchText = selectionOrder.join('_');
     
@@ -1297,59 +1419,185 @@ showTextSelectionList();
     showToast('Full OCR text loaded — edit and search again');
   }
 
-  // ── Sheet Search ─────────────────────────────────────────
+  // ── Search (Routes to Selected Data Source) ─────────────
   async function searchSheet(searchText) {
-    if (!searchText.trim()) return;
-    if (!config.sheetId || !config.apiKey) {
-      showToast('Please configure Google Sheet first');
-      return;
+    if (dataSource === 'sellercloud') {
+      await searchSellerCloud(searchText);
+    } else {
+      await searchGoogleSheets(searchText);
     }
+  }
 
-    showProcessing('Searching spreadsheet...');
+  // ── SellerCloud Search ───────────────────────────────────
+  async function searchSellerCloud(searchText) {
+    if (!searchText.trim()) return;
+
+    showProcessing('Searching SellerCloud...');
     document.getElementById('resultCard').classList.remove('visible');
 
     try {
-      const data = await fetchSheet();
-      const rows = data.values || [];
-      
-      console.log('📊 Total rows:', rows.length);
-      
-      if (rows.length === 0) { 
-        hideProcessing(); 
-        showToast('Sheet is empty'); 
-        return; 
-      }
+      const token = await getSellerCloudToken();
 
-      // Normalize: remove special chars
       function normalize(str) {
         return String(str).toUpperCase().replace(/[^A-Z0-9]/g, '');
       }
 
-      // Fuzzy normalize: also convert O↔0, I↔1 for OCR errors
       function fuzzyNormalize(str) {
         return normalize(str)
-          .replace(/O/g, '0')  // O becomes 0
-          .replace(/I/g, '1')  // I becomes 1
-          .replace(/S/g, '5')  // S becomes 5
-          .replace(/B/g, '8'); // B becomes 8
+          .replace(/O/g, '0')
+          .replace(/I/g, '1')
+          .replace(/S/g, '5')
+          .replace(/B/g, '8');
       }
 
       const searchNorm = normalize(searchText);
       const searchFuzzy = fuzzyNormalize(searchText);
       
-      console.log('🔍 SEARCH:');
+      console.log('🔍 SellerCloud Search:');
       console.log('  Original:', searchText);
       console.log('  Normalized:', searchNorm);
       console.log('  Fuzzy:', searchFuzzy);
 
+      // Try 3 variations:
+      // 1. Original with underscores (as user selected)
+      // 2. Normalized (no special chars)
+      // 3. Fuzzy normalized (O→0, I→1, etc)
+      
+      const searchVariations = [
+        searchText,           // I80GIAI03_TESOI186_08
+        searchNorm,           // I80GIAI03TESOI18608
+        searchFuzzy           // 180G1A103TES0118608
+      ];
+
+      let allItems = [];
+      
+      for (const variation of searchVariations) {
+        const apiUrl = `${SELLERCLOUD.baseUrl}/Catalog?model.sKU=${encodeURIComponent(variation)}`;
+        console.log('Trying:', variation);
+
+        const response = await fetch(apiUrl, {
+          method: 'GET',
+          headers: {
+            'Accept': 'application/json',
+            'Authorization': `Bearer ${token}`
+          }
+        });
+
+        if (response.ok) {
+          const data = await response.json();
+          if (data.Items && data.Items.length > 0) {
+            allItems.push(...data.Items);
+          }
+        }
+      }
+
+      // Deduplicate by ID
+      const uniqueItems = [];
+      const seenIds = new Set();
+      for (const item of allItems) {
+        if (!seenIds.has(item.ID)) {
+          seenIds.add(item.ID);
+          uniqueItems.push(item);
+        }
+      }
+
+      console.log('Total unique results:', uniqueItems.length);
+
+      // Now fuzzy match to find best
+      let bestMatch = null;
+      let bestScore = 0;
+
+      for (const item of uniqueItems) {
+        const mfgSku = item.ManufacturerSKU || '';
+        const mfgNorm = normalize(mfgSku);
+        const mfgFuzzy = fuzzyNormalize(mfgSku);
+        
+        let score = 0;
+
+        if (mfgNorm === searchNorm) {
+          score = 100;
+        } else if (mfgFuzzy === searchFuzzy) {
+          score = 95;
+        } else if (mfgFuzzy.includes(searchFuzzy)) {
+          score = 70;
+        } else if (searchFuzzy.includes(mfgFuzzy) && mfgFuzzy.length >= 6) {
+          score = 60;
+        }
+
+        if (score > bestScore) {
+          bestScore = score;
+          bestMatch = item;
+          if (score >= 95) break;
+        }
+      }
+
+      console.log('Best match score:', bestScore);
+
+      hideProcessing();
+      
+      if (bestMatch) {
+        showToast('Match found!');
+      } else {
+        showToast('No match found');
+      }
+      
+      showResultSellerCloud(searchText, bestMatch);
+      addHistory(searchText, !!bestMatch);
+
+    } catch (e) {
+      hideProcessing();
+      showToast('SellerCloud search failed: ' + e.message);
+      console.error('❌ Error:', e);
+    }
+  }
+
+  // ── Google Sheets Search ─────────────────────────────────
+  async function searchGoogleSheets(searchText) {
+    if (!searchText.trim()) return;
+    if (!config.sheetId || !config.apiKey) {
+      showToast('Configure Google Sheets first');
+      return;
+    }
+
+    showProcessing('Searching Google Sheets...');
+    document.getElementById('resultCard').classList.remove('visible');
+
+    try {
+      const url = `https://sheets.googleapis.com/v4/spreadsheets/${config.sheetId}/values/${encodeURIComponent(config.sheetRange)}?key=${config.apiKey}`;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('Sheet fetch failed');
+      const data = await res.json();
+      
+      const rows = data.values || [];
+      if (rows.length === 0) {
+        hideProcessing();
+        showToast('Sheet is empty');
+        return;
+      }
+
+      function normalize(str) {
+        return String(str).toUpperCase().replace(/[^A-Z0-9]/g, '');
+      }
+
+      function fuzzyNormalize(str) {
+        return normalize(str)
+          .replace(/O/g, '0')
+          .replace(/I/g, '1')
+          .replace(/S/g, '5')
+          .replace(/B/g, '8');
+      }
+
+      const searchNorm = normalize(searchText);
+      const searchFuzzy = fuzzyNormalize(searchText);
+
       let bestRow = null;
       let bestScore = 0;
-      let matchedRowNum = -1;
 
       const dataStart = (rows[0] && isNaN(rows[0][0])) ? 1 : 0;
+      const matchColIndex = colLetterToIndex(config.matchCol);
 
       for (let i = dataStart; i < rows.length; i++) {
-        const cellRaw = (rows[i][0] || '').toString();
+        const cellRaw = (rows[i][matchColIndex] || '').toString();
         const cellNorm = normalize(cellRaw);
         const cellFuzzy = fuzzyNormalize(cellRaw);
         
@@ -1357,35 +1605,22 @@ showTextSelectionList();
 
         let score = 0;
 
-        // Try exact match first
         if (cellNorm === searchNorm) {
           score = 100;
-          console.log('✅ EXACT match at row', i);
-        }
-        // Try fuzzy match (handles O/0, I/1 confusion)
-        else if (cellFuzzy === searchFuzzy) {
+        } else if (cellFuzzy === searchFuzzy) {
           score = 95;
-          console.log('✅ FUZZY match at row', i, '(OCR correction)');
-          console.log('  Sheet:', cellRaw, '→', cellFuzzy);
-          console.log('  Search:', searchText, '→', searchFuzzy);
-        }
-        // Partial matches
-        else if (cellFuzzy.includes(searchFuzzy)) {
+        } else if (cellFuzzy.includes(searchFuzzy)) {
           score = 70;
-        }
-        else if (searchFuzzy.includes(cellFuzzy) && cellFuzzy.length >= 6) {
+        } else if (searchFuzzy.includes(cellFuzzy) && cellFuzzy.length >= 6) {
           score = 60;
         }
 
         if (score > bestScore) {
           bestScore = score;
           bestRow = rows[i];
-          matchedRowNum = i;
-          if (score >= 95) break; // Good enough match
+          if (score >= 95) break;
         }
       }
-
-      console.log('📍 Result:', { score: bestScore, row: matchedRowNum });
 
       if (bestScore < 60) bestRow = null;
 
@@ -1397,13 +1632,13 @@ showTextSelectionList();
         showToast('No match found');
       }
       
-      showResult(searchText, bestRow);
+      showResultGoogleSheets(searchText, bestRow);
       addHistory(searchText, !!bestRow);
 
     } catch (e) {
       hideProcessing();
-      showToast('Search failed: ' + e.message);
-      console.error('❌ Error:', e);
+      showToast('Google Sheets search failed');
+      console.error(e);
     }
   }
 
@@ -1415,8 +1650,66 @@ showTextSelectionList();
   }
 
   // ── Display Result ───────────────────────────────────────
-  // Shows Column A (matched), Column B (SKU), and Column C (Price)
-  function showResult(scannedText, row) {
+  
+  function showResultSellerCloud(scannedText, product) {
+    const card = document.getElementById('resultCard');
+    const status = document.getElementById('resultStatus');
+    const grid = document.getElementById('matchGrid');
+
+    card.classList.add('visible');
+    grid.innerHTML = '';
+
+    if (product) {
+      const sku = product.ID || '—';
+      const msrp = product.ListPrice ? `$${product.ListPrice}` : '—';
+      const mfgSku = product.ManufacturerSKU || '—';
+
+      status.className = 'result-status found';
+      status.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Match found in SellerCloud`;
+
+      const skuBox = document.createElement('div');
+      skuBox.style.cssText = 'background:rgba(0,229,160,0.08);border:1px solid rgba(0,229,160,0.3);border-radius:12px;padding:20px;text-align:center;margin-bottom:12px';
+      skuBox.innerHTML = `
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.62rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px">SKU</div>
+        <div style="font-family:'Playfair Display',serif;font-size:1.8rem;font-weight:600;letter-spacing:-0.02em;color:var(--accent);line-height:1.2;word-break:break-word">${escHtml(sku)}</div>
+      `;
+      grid.appendChild(skuBox);
+
+      const priceBox = document.createElement('div');
+      priceBox.style.cssText = 'background:rgba(123,97,255,0.08);border:1px solid rgba(123,97,255,0.3);border-radius:12px;padding:20px;text-align:center;margin-bottom:12px';
+      priceBox.innerHTML = `
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.62rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px">MSRP</div>
+        <div style="font-family:'Playfair Display',serif;font-size:1.8rem;font-weight:600;letter-spacing:-0.02em;color:var(--accent2);line-height:1.2;word-break:break-word">${escHtml(msrp)}</div>
+      `;
+      grid.appendChild(priceBox);
+
+      const mfgRow = document.createElement('div');
+      mfgRow.className = 'match-row';
+      mfgRow.innerHTML = `<div class="match-key">Manufacturer SKU</div><div class="match-val" style="font-family:'JetBrains Mono',monospace;font-size:0.75rem">${escHtml(mfgSku)}</div>`;
+      grid.appendChild(mfgRow);
+
+      const scannedRow = document.createElement('div');
+      scannedRow.className = 'match-row';
+      scannedRow.innerHTML = `<div class="match-key">Scanned</div><div class="match-val" style="color:var(--text-dim);font-family:'JetBrains Mono',monospace;font-size:0.75rem">${escHtml(scannedText)}</div>`;
+      grid.appendChild(scannedRow);
+
+    } else {
+      status.className = 'result-status not-found';
+      status.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> No match found`;
+
+      const el = document.createElement('div');
+      el.className = 'match-row';
+      el.innerHTML = `<div class="match-key">Scanned</div><div class="match-val" style="color:var(--text-dim);font-family:'JetBrains Mono',monospace">${escHtml(scannedText)}</div>`;
+      grid.appendChild(el);
+
+      const hint = document.createElement('div');
+      hint.style.cssText = 'font-size:0.78rem;color:var(--text-muted);line-height:1.6;padding:4px 0';
+      hint.textContent = 'Try editing the scanned text or check SellerCloud data.';
+      grid.appendChild(hint);
+    }
+  }
+
+  function showResultGoogleSheets(scannedText, row) {
     const card = document.getElementById('resultCard');
     const status = document.getElementById('resultStatus');
     const grid = document.getElementById('matchGrid');
@@ -1425,73 +1718,51 @@ showTextSelectionList();
     grid.innerHTML = '';
 
     if (row) {
-      const colA = row[0] || '—';   // matched key
-      const colB = row[1] || '—';   // SKU
-      const colC = row[2] || '—';   // Price
+      const colA = row[0] || '—';
+      const colB = row[1] || '—';
+      const colC = row[2] || '—';
 
       status.className = 'result-status found';
-      status.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Match found`;
+      status.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><polyline points="20 6 9 17 4 12"/></svg> Match found in Google Sheets`;
 
-      // Big prominent SKU
       const skuBox = document.createElement('div');
-      skuBox.style.cssText = `
-        background: rgba(0,229,160,0.08);
-        border: 1px solid rgba(0,229,160,0.3);
-        border-radius: 12px;
-        padding: 20px;
-        text-align: center;
-        margin-bottom: 12px;
-      `;
+      skuBox.style.cssText = 'background:rgba(0,229,160,0.08);border:1px solid rgba(0,229,160,0.3);border-radius:12px;padding:20px;text-align:center;margin-bottom:12px';
       skuBox.innerHTML = `
-        <div style="font-family:'JetBrains Mono',monospace;font-size:0.62rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px">SKU</div>
-        <div style="font-family:'Playfair Display',sans-serif;font-size:1.8rem;font-weight:600;letter-spacing:-0.02em;color:var(--accent);line-height:1.2;word-break:break-word">${escHtml(colB)}</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.62rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px">SKU (Col B)</div>
+        <div style="font-family:'Playfair Display',serif;font-size:1.8rem;font-weight:600;letter-spacing:-0.02em;color:var(--accent);line-height:1.2;word-break:break-word">${escHtml(colB)}</div>
       `;
       grid.appendChild(skuBox);
 
-      // Big prominent Price
       const priceBox = document.createElement('div');
-      priceBox.style.cssText = `
-        background: rgba(123,97,255,0.08);
-        border: 1px solid rgba(123,97,255,0.3);
-        border-radius: 12px;
-        padding: 20px;
-        text-align: center;
-        margin-bottom: 12px;
-      `;
+      priceBox.style.cssText = 'background:rgba(123,97,255,0.08);border:1px solid rgba(123,97,255,0.3);border-radius:12px;padding:20px;text-align:center;margin-bottom:12px';
       priceBox.innerHTML = `
-        <div style="font-family:'JetBrains Mono',monospace;font-size:0.62rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px">MSRP</div>
-        <div style="font-family:'Playfair Display',sans-serif;font-size:1.8rem;font-weight:600;letter-spacing:-0.02em;color:var(--accent2);line-height:1.2;word-break:break-word">${escHtml(colC)}</div>
+        <div style="font-family:'JetBrains Mono',monospace;font-size:0.62rem;letter-spacing:0.15em;text-transform:uppercase;color:var(--text-muted);margin-bottom:10px">MSRP (Col C)</div>
+        <div style="font-family:'Playfair Display',serif;font-size:1.8rem;font-weight:600;letter-spacing:-0.02em;color:var(--accent2);line-height:1.2;word-break:break-word">${escHtml(colC)}</div>
       `;
       grid.appendChild(priceBox);
 
-      // Matched key (Col A) shown smaller below
-      const keyRow = document.createElement('div');
-      keyRow.className = 'match-row';
-      keyRow.innerHTML = `
-        <div class="match-key">Matched (Col A)</div>
-        <div class="match-val" style="font-family:'JetBrains Mono',monospace;font-size:0.75rem">${escHtml(colA)}</div>`;
-      grid.appendChild(keyRow);
+      const matchRow = document.createElement('div');
+      matchRow.className = 'match-row';
+      matchRow.innerHTML = `<div class="match-key">Matched (Col A)</div><div class="match-val" style="font-family:'JetBrains Mono',monospace;font-size:0.75rem">${escHtml(colA)}</div>`;
+      grid.appendChild(matchRow);
 
-      // Scanned input
       const scannedRow = document.createElement('div');
       scannedRow.className = 'match-row';
-      scannedRow.innerHTML = `
-        <div class="match-key">Scanned</div>
-        <div class="match-val" style="color:var(--text-dim);font-family:'JetBrains Mono',monospace;font-size:0.75rem">${escHtml(scannedText.substring(0, 120))}</div>`;
+      scannedRow.innerHTML = `<div class="match-key">Scanned</div><div class="match-val" style="color:var(--text-dim);font-family:'JetBrains Mono',monospace;font-size:0.75rem">${escHtml(scannedText)}</div>`;
       grid.appendChild(scannedRow);
 
     } else {
       status.className = 'result-status not-found';
-      status.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> No match found in Column A`;
+      status.innerHTML = `<svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5"><line x1="18" y1="6" x2="6" y2="18"/><line x1="6" y1="6" x2="18" y2="18"/></svg> No match found`;
 
       const el = document.createElement('div');
       el.className = 'match-row';
-      el.innerHTML = `<div class="match-key">Scanned</div><div class="match-val" style="color:var(--text-dim);font-family:'JetBrains Mono',monospace">${escHtml(scannedText.substring(0, 120))}</div>`;
+      el.innerHTML = `<div class="match-key">Scanned</div><div class="match-val" style="color:var(--text-dim);font-family:'JetBrains Mono',monospace">${escHtml(scannedText)}</div>`;
       grid.appendChild(el);
 
       const hint = document.createElement('div');
       hint.style.cssText = 'font-size:0.78rem;color:var(--text-muted);line-height:1.6;padding:4px 0';
-      hint.textContent = 'Check your sheet data or edit the detected text and search again.';
+      hint.textContent = 'Try editing the scanned text or check your sheet data.';
       grid.appendChild(hint);
     }
   }
