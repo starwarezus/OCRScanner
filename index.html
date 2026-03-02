@@ -1418,9 +1418,13 @@ showTextSelectionList();
 
   // ── Search (Routes to Selected Data Source) ─────────────
   async function searchSheet(searchText) {
+    console.log('🔍 Current dataSource:', dataSource);
+    
     if (dataSource === 'sellercloud') {
+      console.log('→ Routing to SellerCloud');
       await searchSellerCloud(searchText);
     } else {
+      console.log('→ Routing to Google Sheets');
       await searchGoogleSheets(searchText);
     }
   }
