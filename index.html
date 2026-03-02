@@ -915,8 +915,9 @@
       
     } catch (e) {
       console.error('❌ SellerCloud test failed:', e);
-      resultDiv.innerHTML = `<span style="color:var(--warn)">✗ Connection failed</span><br><span style="color:var(--text-dim);font-size:0.7rem">${e.message}</span>`;
-      showToast('SellerCloud connection failed');
+      const errorMsg = e.message || 'Unknown error';
+      resultDiv.innerHTML = `<span style="color:var(--warn)">✗ Connection failed</span><br><span style="color:var(--text-dim);font-size:0.7rem;word-break:break-word">${errorMsg}</span>`;
+      showToast('SellerCloud connection failed - check console');
     }
   }
 
@@ -1073,13 +1074,16 @@
       });
 
       if (!response.ok) {
-        throw new Error(`Token request failed: ${response.status}`);
+        const errorText = await response.text();
+        console.error('Token error response:', errorText);
+        throw new Error(`Token request failed: ${response.status} - ${errorText.substring(0, 100)}`);
       }
 
       const data = await response.json();
+      console.log('Token response:', data);
       
       if (!data.access_token) {
-        throw new Error('No access_token in response');
+        throw new Error('No access_token in response: ' + JSON.stringify(data));
       }
 
       // Store token and expiry (1 hour from now)
