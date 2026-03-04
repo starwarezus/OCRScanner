@@ -802,14 +802,10 @@
 
   // ── Data Source Configuration  let dataSource = 'sellercloud'; // 'sellercloud' or 'googlesheets'
 
-  // ── SellerCloud Configuration  // TODO: SECURITY WARNING - Move credentials to secure backend proxy!
-  // These credentials are visible in client-side code
+  // ── SellerCloud Configuration (via Railway Proxy) ────────
+  // Using Railway proxy to avoid CORS issues
   const SELLERCLOUD = {
-    baseUrl: 'https://blny.api.sellercloud.com/rest/api',
-    username: 'henry@goldlabelny.com',
-    password: 'Corishabt1987!!',
-    token: null,
-    tokenExpiry: null
+    proxyUrl: 'https://ocrscanner-production.up.railway.app'
   };
 
   let config = {
