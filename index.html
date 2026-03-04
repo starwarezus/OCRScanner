@@ -879,45 +879,40 @@
     resultDiv.innerHTML = '<span style="color:var(--text-dim)">Testing connection...</span>';
     
     try {
-      console.log('🧪 Testing SellerCloud connection...');
+      console.log('🧪 Testing SellerCloud via Railway proxy...');
       
-      // Get token
-      const token = await getSellerCloudToken();
-      console.log('✅ Token obtained');
-      
-      // Try to fetch any product - use a simple search that should return results
-      const testUrl = `${SELLERCLOUD.baseUrl}/Catalog?model.pageSize=1&model.pageNumber=1`;
-      
+      const testUrl = `${SELLERCLOUD.proxyUrl}/api/test`;
       console.log('📡 Calling:', testUrl);
       
       const response = await fetch(testUrl, {
         method: 'GET',
         headers: {
-          'Accept': 'application/json',
-          'Authorization': `Bearer ${token}`
+          'Accept': 'application/json'
         }
       });
       
       console.log('📥 Response status:', response.status);
       
       if (!response.ok) {
-        throw new Error(`API returned ${response.status}: ${response.statusText}`);
+        const errorText = await response.text();
+        throw new Error(`Proxy returned ${response.status}: ${errorText}`);
       }
       
       const data = await response.json();
       console.log('📦 Response data:', data);
       
-      const itemCount = data.Items ? data.Items.length : 0;
-      const totalResults = data.TotalResults || 0;
-      
-      resultDiv.innerHTML = `<span style="color:var(--accent)">✓ Connection successful!</span><br><span style="color:var(--text-dim);font-size:0.7rem">Found ${totalResults} total products in catalog. API is working.</span>`;
-      showToast('SellerCloud API connected successfully!');
+      if (data.success) {
+        resultDiv.innerHTML = `<span style="color:var(--accent)">✓ Connection successful!</span><br><span style="color:var(--text-dim);font-size:0.7rem">Found ${data.totalProducts} products. Railway proxy is working!</span>`;
+        showToast('SellerCloud connected via Railway!');
+      } else {
+        throw new Error(data.error || 'Unknown error');
+      }
       
     } catch (e) {
-      console.error('❌ SellerCloud test failed:', e);
+      console.error('❌ Railway proxy test failed:', e);
       const errorMsg = e.message || 'Unknown error';
       resultDiv.innerHTML = `<span style="color:var(--warn)">✗ Connection failed</span><br><span style="color:var(--text-dim);font-size:0.7rem;word-break:break-word">${errorMsg}</span>`;
-      showToast('SellerCloud connection failed - check console');
+      showToast('Railway proxy connection failed');
     }
   }
 
@@ -1491,7 +1486,7 @@ showTextSelectionList();
     }
   }
 
-  // ── SellerCloud Search ───────────────────────────────────
+  // ── SellerCloud Search (via Railway Proxy) ──────────────
   async function searchSellerCloud(searchText) {
     if (!searchText.trim()) return;
 
@@ -1499,8 +1494,35 @@ showTextSelectionList();
     document.getElementById('resultCard').classList.remove('visible');
 
     try {
-      const token = await getSellerCloudToken();
+      console.log('🔍 Searching SellerCloud via Railway proxy:', searchText);
+      
+      const response = await fetch(`${SELLERCLOUD.proxyUrl}/api/search`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          'Accept': 'application/json'
+        },
+        body: JSON.stringify({
+          searchText: searchText
+        })
+      });
 
+      if (!response.ok) {
+        const errorText = await response.text();
+        throw new Error(`Proxy returned ${response.status}: ${errorText}`);
+      }
+
+      const data = await response.json();
+      console.log('📦 Proxy response:', data);
+
+      if (!data.success) {
+        throw new Error(data.error || 'Search failed');
+      }
+
+      const items = data.items || [];
+      console.log(`Found ${items.length} results`);
+
+      // Find best match using fuzzy matching
       function normalize(str) {
         return String(str).toUpperCase().replace(/[^A-Z0-9]/g, '');
       }
@@ -1515,62 +1537,11 @@ showTextSelectionList();
 
       const searchNorm = normalize(searchText);
       const searchFuzzy = fuzzyNormalize(searchText);
-      
-      console.log('🔍 SellerCloud Search:');
-      console.log('  Original:', searchText);
-      console.log('  Normalized:', searchNorm);
-      console.log('  Fuzzy:', searchFuzzy);
 
-      // Try 3 variations:
-      // 1. Original with underscores (as user selected)
-      // 2. Normalized (no special chars)
-      // 3. Fuzzy normalized (O→0, I→1, etc)
-      
-      const searchVariations = [
-        searchText,           // I80GIAI03_TESOI186_08
-        searchNorm,           // I80GIAI03TESOI18608
-        searchFuzzy           // 180G1A103TES0118608
-      ];
-
-      let allItems = [];
-      
-      for (const variation of searchVariations) {
-        const apiUrl = `${SELLERCLOUD.baseUrl}/Catalog?model.sKU=${encodeURIComponent(variation)}`;
-        console.log('Trying:', variation);
-
-        const response = await fetch(apiUrl, {
-          method: 'GET',
-          headers: {
-            'Accept': 'application/json',
-            'Authorization': `Bearer ${token}`
-          }
-        });
-
-        if (response.ok) {
-          const data = await response.json();
-          if (data.Items && data.Items.length > 0) {
-            allItems.push(...data.Items);
-          }
-        }
-      }
-
-      // Deduplicate by ID
-      const uniqueItems = [];
-      const seenIds = new Set();
-      for (const item of allItems) {
-        if (!seenIds.has(item.ID)) {
-          seenIds.add(item.ID);
-          uniqueItems.push(item);
-        }
-      }
-
-      console.log('Total unique results:', uniqueItems.length);
-
-      // Now fuzzy match to find best
       let bestMatch = null;
       let bestScore = 0;
 
-      for (const item of uniqueItems) {
+      for (const item of items) {
         const mfgSku = item.ManufacturerSKU || '';
         const mfgNorm = normalize(mfgSku);
         const mfgFuzzy = fuzzyNormalize(mfgSku);
@@ -1599,7 +1570,7 @@ showTextSelectionList();
       hideProcessing();
       
       if (bestMatch) {
-        showToast('Match found!');
+        showToast('Match found in SellerCloud!');
       } else {
         showToast('No match found');
       }
@@ -1609,12 +1580,13 @@ showTextSelectionList();
 
     } catch (e) {
       hideProcessing();
-      showToast('SellerCloud search failed: ' + e.message);
-      console.error('❌ Error:', e);
+      showToast('SellerCloud search failed');
+      console.error('❌ Search error:', e);
+      showResultSellerCloud(searchText, null);
     }
   }
 
-  // ── Google Sheets Search ─────────────────────────────────
+    // ── Google Sheets Search ─────────────────────────────────
   async function searchGoogleSheets(searchText) {
     if (!searchText.trim()) return;
     if (!config.sheetId || !config.apiKey) {
