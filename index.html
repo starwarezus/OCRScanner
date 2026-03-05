@@ -743,9 +743,15 @@
       <span style="color:var(--text-muted)">Select at least one item</span>
     </div>
     
-    <button class="btn btn-primary" onclick="searchSelected()" style="margin-top:12px;width:100%">
+    <!-- Editable text box for manual correction -->
+    <div style="margin-top:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:12px">
+      <label style="font-family:'JetBrains Mono',monospace;font-size:0.65rem;letter-spacing:0.1em;text-transform:uppercase;color:var(--text-muted);display:block;margin-bottom:8px">Edit selected text (fix any OCR errors)</label>
+      <input type="text" id="manualEditInput" placeholder="No text selected" style="width:100%;background:var(--surface);border:1px solid var(--border);border-radius:6px;color:var(--text);font-family:'JetBrains Mono',monospace;font-size:0.85rem;padding:10px 12px" oninput="updateManualEdit()" />
+    </div>
+    
+    <button class="btn btn-primary" onclick="searchManualEdit()" style="margin-top:12px;width:100%">
       <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
-      Search Selected
+      Search
     </button>
   </div>
 
@@ -1235,12 +1241,18 @@ showTextSelectionList();
 
     function updateSelectionCount() {
     const summary = document.getElementById('selectionSummary');
+    const manualInput = document.getElementById('manualEditInput');
     
     if (selectionOrder.length === 0) {
       summary.innerHTML = '<span style="color:var(--text-muted)">Select at least one item</span>';
+      manualInput.value = '';
+      manualInput.placeholder = 'No text selected';
     } else {
       const words = selectionOrder.join(' + ');
+      const searchText = selectionOrder.join('_');
       summary.innerHTML = `<span style="color:var(--accent);font-weight:600">${selectionOrder.length} selected:</span> <span style="font-family:monospace;font-size:0.8rem">${words}</span>`;
+      manualInput.value = searchText;
+      manualInput.placeholder = 'Edit text here';
     }
   }
 
@@ -1269,6 +1281,30 @@ showTextSelectionList();
     
     console.log('Calling searchSheet...');
     searchSheet(searchText);
+  }
+
+  function searchManualEdit() {
+    const manualInput = document.getElementById('manualEditInput');
+    const searchText = manualInput.value.trim();
+    
+    if (!searchText) {
+      showToast('Please enter text to search');
+      return;
+    }
+    
+    console.log('=== searchManualEdit called ===');
+    console.log('Search text:', searchText);
+    
+    document.getElementById('textSelectionUI').style.display = 'none';
+    document.getElementById('ocrEditInput').value = searchText;
+    document.getElementById('ocrEditCard').style.display = 'block';
+    
+    searchSheet(searchText);
+  }
+
+  function updateManualEdit() {
+    // This function is called when user types in the manual edit box
+    // Currently just a placeholder for future enhancements
   }
 
 
