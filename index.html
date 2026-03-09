@@ -476,6 +476,70 @@
     }
     .btn-search-manual:hover { border-color: var(--accent); color: var(--accent); }
 
+    /* Variation Selection */
+    .variation-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 12px 14px;
+      background: var(--surface2);
+      border: 2px solid var(--border);
+      border-radius: var(--radius-sm);
+      cursor: pointer;
+      transition: all 0.2s;
+    }
+    .variation-item:hover {
+      border-color: var(--text-dim);
+      background: var(--surface);
+    }
+    .variation-item.selected {
+      border-color: var(--accent);
+      background: rgba(0, 229, 160, 0.08);
+    }
+    .variation-radio {
+      width: 18px;
+      height: 18px;
+      border: 2px solid var(--border);
+      border-radius: 50%;
+      position: relative;
+      flex-shrink: 0;
+      transition: all 0.2s;
+    }
+    .variation-item.selected .variation-radio {
+      border-color: var(--accent);
+      background: var(--accent);
+    }
+    .variation-item.selected .variation-radio::after {
+      content: '';
+      position: absolute;
+      top: 50%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--bg);
+    }
+    .variation-info {
+      flex: 1;
+      display: flex;
+      flex-direction: column;
+      gap: 4px;
+    }
+    .variation-id {
+      font-family: 'JetBrains Mono', monospace;
+      font-size: 0.75rem;
+      color: var(--text-muted);
+    }
+    .variation-size {
+      font-size: 0.9rem;
+      color: var(--text);
+      font-weight: 500;
+    }
+    .variation-item.selected .variation-size {
+      color: var(--accent);
+    }
+
     /* History */
     .history-list {
       display: flex;
@@ -777,6 +841,21 @@
     <div id="resultStatus" class="result-status"></div>
 
     <div id="matchGrid" class="match-grid"></div>
+  </div>
+
+  <!-- Variations Selection -->
+  <div class="card" id="variationsCard" style="display:none">
+    <div class="card-label">📦 Select Size Variation</div>
+    
+    <div style="margin-bottom:12px;font-size:0.85rem;color:var(--text-dim)">
+      Parent SKU: <span id="parentSKULabel" style="color:var(--accent);font-family:'JetBrains Mono',monospace"></span>
+    </div>
+    
+    <div id="variationsList" style="display:flex;flex-direction:column;gap:8px;max-height:400px;overflow-y:auto"></div>
+    
+    <button class="btn btn-primary" id="selectVariationBtn" onclick="confirmVariationSelection()" style="margin-top:16px;width:100%" disabled>
+      Select Variation
+    </button>
   </div>
 
   <!-- Scan History -->
@@ -1593,6 +1672,8 @@ showTextSelectionList();
       
       if (bestMatch) {
         showToast('Match found in SellerCloud!');
+        // Check if this is a parent product with variations
+        await fetchAndShowVariations(bestMatch);
       } else {
         showToast('No match found');
       }
@@ -1606,6 +1687,134 @@ showTextSelectionList();
       console.error('❌ Search error:', e);
       showResultSellerCloud(searchText, null);
     }
+  }
+
+  // ── Variations Handling ───────────────────────────────────
+  let selectedVariation = null;
+
+  async function fetchAndShowVariations(parentProduct) {
+    const parentSKU = parentProduct.ManufacturerSKU || parentProduct.ID;
+    
+    try {
+      showProcessing('Checking for variations...');
+      
+      const response = await fetch(`${SELLERCLOUD.proxyUrl}/api/get-variations`, {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify({
+          parentSKU: parentSKU
+        })
+      });
+
+      hideProcessing();
+
+      if (!response.ok) {
+        console.log('No variations endpoint or error:', response.status);
+        return;
+      }
+
+      const data = await response.json();
+      
+      if (data.success && data.variations && data.variations.length > 0) {
+        displayVariations(data.variations, parentSKU);
+      } else {
+        console.log('No variations found for', parentSKU);
+      }
+      
+    } catch (error) {
+      hideProcessing();
+      console.error('Error fetching variations:', error);
+    }
+  }
+
+  function displayVariations(variations, parentSKU) {
+    const card = document.getElementById('variationsCard');
+    const list = document.getElementById('variationsList');
+    const parentLabel = document.getElementById('parentSKULabel');
+    
+    parentLabel.textContent = parentSKU;
+    list.innerHTML = '';
+    selectedVariation = null;
+    
+    variations.forEach((variation, index) => {
+      const item = document.createElement('div');
+      item.className = 'variation-item';
+      item.onclick = () => selectVariation(index, variation);
+      
+      item.innerHTML = `
+        <div class="variation-radio"></div>
+        <div class="variation-info">
+          <div class="variation-size">Size: ${variation.Size}</div>
+          <div class="variation-id">ID: ${variation.ProductID}</div>
+        </div>
+      `;
+      
+      list.appendChild(item);
+    });
+    
+    card.style.display = 'block';
+    document.getElementById('selectVariationBtn').disabled = true;
+    
+    // Scroll to variations
+    card.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+  }
+
+  function selectVariation(index, variation) {
+    // Remove previous selection
+    document.querySelectorAll('.variation-item').forEach(item => {
+      item.classList.remove('selected');
+    });
+    
+    // Select new item
+    const items = document.querySelectorAll('.variation-item');
+    if (items[index]) {
+      items[index].classList.add('selected');
+    }
+    
+    selectedVariation = variation;
+    document.getElementById('selectVariationBtn').disabled = false;
+    
+    console.log('Selected variation:', variation);
+  }
+
+  function confirmVariationSelection() {
+    if (!selectedVariation) {
+      showToast('Please select a variation');
+      return;
+    }
+    
+    showToast(`Selected: ${selectedVariation.Size} (ID: ${selectedVariation.ProductID})`);
+    
+    // Hide variations card
+    document.getElementById('variationsCard').style.display = 'none';
+    
+    // TODO: Next step - print label with this ProductID
+    console.log('Confirmed variation:', selectedVariation);
+    
+    // For now, highlight the selection in results
+    highlightSelectedVariation(selectedVariation);
+  }
+
+  function highlightSelectedVariation(variation) {
+    const grid = document.getElementById('matchGrid');
+    
+    // Add selected variation info to results
+    const selectionBox = document.createElement('div');
+    selectionBox.style.cssText = 'margin-top:12px;padding:12px;background:rgba(0,229,160,0.1);border:1px solid var(--accent);border-radius:8px';
+    selectionBox.innerHTML = `
+      <div style="font-size:0.75rem;color:var(--text-muted);margin-bottom:6px;font-family:'JetBrains Mono',monospace;text-transform:uppercase;letter-spacing:0.1em">✓ Selected Variation</div>
+      <div style="font-size:0.9rem;color:var(--accent);font-weight:600">Size: ${variation.Size}</div>
+      <div style="font-size:0.8rem;color:var(--text-dim);font-family:'JetBrains Mono',monospace">Product ID: ${variation.ProductID}</div>
+    `;
+    
+    // Remove old selection if exists
+    const oldSelection = grid.querySelector('.selected-variation-box');
+    if (oldSelection) oldSelection.remove();
+    
+    selectionBox.className = 'selected-variation-box';
+    grid.appendChild(selectionBox);
   }
 
     // ── Google Sheets Search ─────────────────────────────────
