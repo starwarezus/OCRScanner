@@ -822,13 +822,13 @@
     </button>
   </div>
 
-  <!-- OCR Result + manual edit -->
-  <div class="card" id="ocrEditCard" style="display:none">
-    <div class="card-label">Detected Text</div>
+  <!-- Manual Search Box (Always Visible) -->
+  <div class="card" id="ocrEditCard">
+    <div class="card-label">Manual Search</div>
     <div class="ocr-edit-box">
-      <label>Edit if needed, then search</label>
+      <label>Enter SKU or text to search</label>
       <div class="ocr-edit-row">
-        <input type="text" id="ocrEditInput" placeholder="Scanned text..." />
+        <input type="text" id="ocrEditInput" placeholder="Type or paste SKU here..." />
         <button class="btn-search-manual" onclick="searchSheet(document.getElementById('ocrEditInput').value)">Search →</button>
       </div>
     </div>
@@ -1185,7 +1185,6 @@
 
   async function runOCR(imageData) {
     showProcessing('Reading label text...');
-    document.getElementById('ocrEditCard').style.display = 'none';
     document.getElementById('resultCard').classList.remove('visible');
     document.getElementById('textSelectionUI').style.display = 'none';
     detectedWords = [];
