@@ -2328,11 +2328,7 @@ showTextSelectionList();
     });
     const barcodeImg = canvas.toDataURL('image/png');
     
-    // Vertical text on right (rotated 90°)
-    doc.setFontSize(10);
-    doc.text('Scanner Test', LABEL_W - 12, 15, { angle: 90 });
-    
-    // Product name (left)
+    // Product name (left) - NO ROTATION
     doc.setFontSize(9);
     doc.text('TEST LABEL', 8, 35);
     
@@ -2341,11 +2337,14 @@ showTextSelectionList();
     doc.text('S', LABEL_W - 18, 35);
     
     // Barcode (centered)
-    doc.addImage(barcodeImg, 'PNG', 40, 42, 80, 30);
+    const barcodeX = 40;
+    const barcodeW = 80;
+    doc.addImage(barcodeImg, 'PNG', barcodeX, 42, barcodeW, 30);
     
-    // ProductID (bottom left)
+    // ProductID (centered under barcode)
     doc.setFontSize(8);
-    doc.text('TEST123', 40, 82);
+    const barcodeCenter = barcodeX + (barcodeW / 2);
+    doc.text('TEST123', barcodeCenter, 82, { align: 'center' });
     
     // Price (bottom right)
     doc.text('$0.00', LABEL_W - 35, 82);
@@ -2438,25 +2437,27 @@ showTextSelectionList();
     const ebayTitle = variation.eBayTopTitle || 'PRODUCT TITLE';
     const price = variation.ListPrice || 0;
     
-    // Vertical text on right (eBayTopTitle rotated 90°)
-    doc.setFontSize(8);
-    const titleLines = doc.splitTextToSize(ebayTitle, LABEL_H - 20);
-    doc.text(titleLines, LABEL_W - 12, 15, { angle: 90 });
+    // eBayTopTitle at the very top (first line, horizontal)
+    doc.setFontSize(7);
+    doc.text(ebayTitle, 8, 15, { maxWidth: LABEL_W - 16 });
     
-    // Product name (left)
+    // Product name (left, second line)
     doc.setFontSize(8);
     doc.text(variation.ProductName || '', 8, 35);
     
-    // Size (right, same line)
+    // Size (right, same line as product name)
     doc.setFontSize(12);
     doc.text(variation.Size || '', LABEL_W - 18, 35);
     
     // Barcode (centered)
-    doc.addImage(barcodeImg, 'PNG', 40, 42, 80, 30);
+    const barcodeX = 40;
+    const barcodeW = 80;
+    doc.addImage(barcodeImg, 'PNG', barcodeX, 42, barcodeW, 30);
     
-    // ProductID (bottom left)
+    // ProductID (centered under barcode)
     doc.setFontSize(8);
-    doc.text(variation.ProductID, 40, 82);
+    const barcodeCenter = barcodeX + (barcodeW / 2);
+    doc.text(variation.ProductID, barcodeCenter, 82, { align: 'center' });
     
     // Price (bottom right)
     doc.text(`$${Number(price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, LABEL_W - 40, 82);
