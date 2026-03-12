@@ -536,6 +536,12 @@
       color: var(--text);
       font-weight: 500;
     }
+    .variation-name {
+      font-size: 0.85rem;
+      color: var(--text);
+      font-weight: 600;
+      margin: 2px 0;
+    }
     .variation-item.selected .variation-size {
       color: var(--accent);
     }
@@ -1746,6 +1752,7 @@ showTextSelectionList();
         <div class="variation-radio"></div>
         <div class="variation-info">
           <div class="variation-size">Size: ${variation.Size}</div>
+          <div class="variation-name">${variation.ProductName || ''}</div>
           <div class="variation-id">ID: ${variation.ProductID}</div>
         </div>
       `;
