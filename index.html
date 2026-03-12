@@ -545,6 +545,22 @@
     .variation-item.selected .variation-size {
       color: var(--accent);
     }
+    .btn-print-label {
+      padding: 8px 16px;
+      background: var(--accent);
+      color: var(--bg);
+      border: none;
+      border-radius: 6px;
+      font-size: 0.8rem;
+      font-weight: 600;
+      cursor: pointer;
+      transition: all 0.2s;
+      white-space: nowrap;
+    }
+    .btn-print-label:hover {
+      background: #00d4a0;
+      transform: translateY(-1px);
+    }
 
     /* History */
     .history-list {
@@ -678,6 +694,11 @@
       font-weight: 600;
     }
   </style>
+  
+  <!-- PDF and Barcode Libraries -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/jsbarcode@3.11.5/dist/JsBarcode.all.min.js"></script>
+  
   </head>
 <body>
 <div class="container">
@@ -840,6 +861,20 @@
     </div>
   </div>
 
+  <!-- Printer Selection -->
+  <div class="card" id="printerCard">
+    <div class="card-label" onclick="togglePrinterSelection()" style="cursor:pointer;user-select:none">
+      <span id="printerLabel">🖨️ Select Printer</span>
+      <span id="printerToggle" style="float:right">▼</span>
+    </div>
+    <div id="printerSelectionContent">
+      <div id="printerList" style="margin-top:12px"></div>
+      <button class="btn btn-primary" id="testPrintBtn" onclick="printTestLabel()" style="margin-top:12px;width:100%;display:none">
+        Print Test Label
+      </button>
+    </div>
+  </div>
+
   <!-- Results -->
   <div class="card result-card" id="resultCard">
     <div class="card-label">03 — Match Result</div>
@@ -902,6 +937,15 @@
   const SELLERCLOUD = {
     proxyUrl: 'https://marvelous-flow-production.up.railway.app'
   };
+
+  // ── PrintNode Configuration ────────
+  const PRINTNODE = {
+    apiKey: '5p5D5FgLaf4j6cZPiOvAvjLoZySy6ZJjL34HUudimkA',
+    apiUrl: 'https://api.printnode.com'
+  };
+
+  let selectedPrinter = null;
+  let printerListExpanded = true;
 
   let config = {
     // Google Sheets config
@@ -1755,6 +1799,9 @@ showTextSelectionList();
           <div class="variation-name">${variation.ProductName || ''}</div>
           <div class="variation-id">ID: ${variation.ProductID}</div>
         </div>
+        <button class="btn-print-label" style="display:none" onclick="event.stopPropagation(); printVariationLabel(${index})">
+          Print Label
+        </button>
       `;
       
       list.appendChild(item);
@@ -1768,15 +1815,20 @@ showTextSelectionList();
   }
 
   function selectVariation(index, variation) {
-    // Remove previous selection
+    // Remove previous selection and hide all print buttons
     document.querySelectorAll('.variation-item').forEach(item => {
       item.classList.remove('selected');
+      const btn = item.querySelector('.btn-print-label');
+      if (btn) btn.style.display = 'none';
     });
     
     // Select new item
     const items = document.querySelectorAll('.variation-item');
     if (items[index]) {
       items[index].classList.add('selected');
+      // Show print button for selected item
+      const btn = items[index].querySelector('.btn-print-label');
+      if (btn) btn.style.display = 'block';
     }
     
     selectedVariation = variation;
@@ -2089,6 +2141,286 @@ showTextSelectionList();
   function escHtml(str) {
     return String(str).replace(/&/g,'&amp;').replace(/</g,'&lt;').replace(/>/g,'&gt;').replace(/"/g,'&quot;');
   }
+
+  // ── PrintNode Printer Functions ──────────────────────────
+
+  async function fetchPrinters() {
+    try {
+      const response = await fetch(`${PRINTNODE.apiUrl}/printers`, {
+        headers: {
+          'Authorization': `Basic ${btoa(PRINTNODE.apiKey + ':')}`
+        }
+      });
+      
+      if (!response.ok) {
+        throw new Error('Failed to fetch printers');
+      }
+      
+      const printers = await response.json();
+      displayPrinters(printers);
+      
+      // Load saved printer selection
+      const savedPrinterId = localStorage.getItem('selected_printer_id');
+      if (savedPrinterId) {
+        const savedPrinter = printers.find(p => p.id == savedPrinterId);
+        if (savedPrinter) {
+          selectPrinter(savedPrinter);
+        }
+      }
+    } catch (error) {
+      console.error('Error fetching printers:', error);
+      document.getElementById('printerList').innerHTML = '<div style="color:var(--error);padding:12px">Failed to load printers. Check API key.</div>';
+    }
+  }
+
+  function displayPrinters(printers) {
+    const list = document.getElementById('printerList');
+    list.innerHTML = '';
+    
+    if (printers.length === 0) {
+      list.innerHTML = '<div style="color:var(--text-muted);padding:12px">No printers found</div>';
+      return;
+    }
+    
+    printers.forEach(printer => {
+      const item = document.createElement('div');
+      item.style.cssText = 'padding:12px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;margin-bottom:8px;cursor:pointer;transition:all 0.2s';
+      item.innerHTML = `
+        <div style="display:flex;align-items:center;gap:10px">
+          <div class="variation-radio" id="printer-radio-${printer.id}"></div>
+          <div style="flex:1">
+            <div style="font-weight:500;color:var(--text)">${escHtml(printer.name)}</div>
+            <div style="font-size:0.75rem;color:var(--text-muted);margin-top:2px">${escHtml(printer.description || '')}</div>
+          </div>
+        </div>
+      `;
+      item.onclick = () => selectPrinter(printer);
+      list.appendChild(item);
+    });
+  }
+
+  function selectPrinter(printer) {
+    selectedPrinter = printer;
+    
+    // Update UI
+    document.querySelectorAll('[id^="printer-radio-"]').forEach(radio => {
+      radio.style.background = 'var(--bg)';
+    });
+    
+    const selectedRadio = document.getElementById(`printer-radio-${printer.id}`);
+    if (selectedRadio) {
+      selectedRadio.style.background = 'var(--accent)';
+    }
+    
+    // Update label
+    document.getElementById('printerLabel').textContent = `🖨️ Printer: ${printer.name}`;
+    
+    // Show test print button
+    document.getElementById('testPrintBtn').style.display = 'block';
+    
+    // Save to localStorage
+    localStorage.setItem('selected_printer_id', printer.id);
+    
+    console.log('Selected printer:', printer.name);
+  }
+
+  function togglePrinterSelection() {
+    const content = document.getElementById('printerSelectionContent');
+    const toggle = document.getElementById('printerToggle');
+    
+    if (printerListExpanded) {
+      content.style.display = 'none';
+      toggle.textContent = '▶';
+      printerListExpanded = false;
+    } else {
+      content.style.display = 'block';
+      toggle.textContent = '▼';
+      printerListExpanded = true;
+    }
+  }
+
+  async function printTestLabel() {
+    if (!selectedPrinter) {
+      showToast('Please select a printer first');
+      return;
+    }
+    
+    showProcessing('Generating test label...');
+    
+    try {
+      // Generate test PDF
+      const pdfBase64 = await generateTestLabelPDF();
+      
+      // Send to PrintNode
+      await sendToPrintNode(pdfBase64, 'Test Label');
+      
+      hideProcessing();
+      showToast('✓ Test label printed successfully!');
+      
+      // Collapse printer selection
+      document.getElementById('printerSelectionContent').style.display = 'none';
+      document.getElementById('printerToggle').textContent = '▶';
+      printerListExpanded = false;
+      
+    } catch (error) {
+      hideProcessing();
+      showToast('✗ Failed to print test label');
+      console.error('Print error:', error);
+    }
+  }
+
+  async function generateTestLabelPDF() {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'in',
+      format: [1.25, 2.25] // 1.25" x 2.25"
+    });
+    
+    // Generate barcode as image
+    const canvas = document.createElement('canvas');
+    JsBarcode(canvas, 'TEST123', {
+      format: 'CODE128',
+      width: 2,
+      height: 40,
+      displayValue: false
+    });
+    const barcodeImg = canvas.toDataURL('image/png');
+    
+    // Label dimensions
+    const width = 1.25;
+    const height = 2.25;
+    
+    // Add rotated text (vertical on right side)
+    doc.setFontSize(8);
+    doc.text('TEST LABEL', width - 0.15, height - 0.3, { angle: 90 });
+    
+    // Product name and size (horizontal)
+    doc.setFontSize(7);
+    doc.text('Scanner Test', 0.1, 0.8);
+    doc.text('S', width - 0.2, 0.8);
+    
+    // Barcode
+    doc.addImage(barcodeImg, 'PNG', 0.2, 1.0, 0.8, 0.3);
+    
+    // ProductID and Price
+    doc.setFontSize(6);
+    doc.text('TEST123', 0.2, 1.35);
+    doc.text('$0.00', width - 0.4, 1.35);
+    
+    // Return base64
+    return doc.output('datauristring').split(',')[1];
+  }
+
+  async function sendToPrintNode(pdfBase64, title) {
+    const printJob = {
+      printerId: selectedPrinter.id,
+      title: title,
+      contentType: 'pdf_base64',
+      content: pdfBase64,
+      source: 'OCR Scanner App'
+    };
+    
+    const response = await fetch(`${PRINTNODE.apiUrl}/printjobs`, {
+      method: 'POST',
+      headers: {
+        'Authorization': `Basic ${btoa(PRINTNODE.apiKey + ':')}`,
+        'Content-Type': 'application/json'
+      },
+      body: JSON.stringify(printJob)
+    });
+    
+    if (!response.ok) {
+      throw new Error('Failed to send print job');
+    }
+    
+    return await response.json();
+  }
+
+  async function printVariationLabel(index) {
+    if (!selectedPrinter) {
+      showToast('Please select a printer first');
+      return;
+    }
+    
+    if (!selectedVariation) {
+      showToast('Please select a variation');
+      return;
+    }
+    
+    showProcessing('Generating label...');
+    
+    try {
+      // Generate label PDF
+      const pdfBase64 = await generateVariationLabelPDF(selectedVariation);
+      
+      // Send to PrintNode
+      await sendToPrintNode(pdfBase64, `Label-${selectedVariation.ProductID}`);
+      
+      hideProcessing();
+      showToast(`✓ Label printed for ${selectedVariation.ProductName}`);
+      
+    } catch (error) {
+      hideProcessing();
+      showToast('✗ Failed to print label');
+      console.error('Print error:', error);
+    }
+  }
+
+  async function generateVariationLabelPDF(variation) {
+    const { jsPDF } = window.jspdf;
+    const doc = new jsPDF({
+      orientation: 'portrait',
+      unit: 'in',
+      format: [1.25, 2.25]
+    });
+    
+    // Generate barcode
+    const canvas = document.createElement('canvas');
+    JsBarcode(canvas, variation.ProductID, {
+      format: 'CODE128',
+      width: 2,
+      height: 40,
+      displayValue: false
+    });
+    const barcodeImg = canvas.toDataURL('image/png');
+    
+    // Label dimensions
+    const width = 1.25;
+    const height = 2.25;
+    
+    // Get additional data (eBayTopTitle and ListPrice)
+    // We need to fetch this from the full product details
+    // For now, use placeholder - we'll update this
+    const ebayTitle = variation.eBayTopTitle || 'PRODUCT TITLE';
+    const price = variation.ListPrice || 0;
+    
+    // Add rotated text (vertical on right side) - eBayTopTitle
+    doc.setFontSize(7);
+    const titleLines = doc.splitTextToSize(ebayTitle, height - 0.4);
+    doc.text(titleLines, width - 0.12, 0.2, { angle: 90 });
+    
+    // Product name (left) and size (right) on same line
+    doc.setFontSize(7);
+    doc.text(variation.ProductName || '', 0.08, 0.75);
+    doc.setFontSize(9);
+    doc.text(variation.Size || '', width - 0.25, 0.75);
+    
+    // Barcode
+    doc.addImage(barcodeImg, 'PNG', 0.15, 0.95, 0.9, 0.35);
+    
+    // ProductID (left) and Price (right) on same line
+    doc.setFontSize(6);
+    doc.text(variation.ProductID, 0.15, 1.38);
+    doc.text(`$${Number(price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, width - 0.5, 1.38);
+    
+    return doc.output('datauristring').split(',')[1];
+  }
+
+  // Load printers on page load
+  window.addEventListener('DOMContentLoaded', () => {
+    fetchPrinters();
+  });
 </script>
 </body>
 </html>
