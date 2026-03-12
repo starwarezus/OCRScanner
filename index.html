@@ -736,21 +736,6 @@
             </div>
             <button class="connect-btn" onclick="testSellerCloudConnection()" style="font-size:0.82rem;padding:10px 16px">Test API Connection</button>
             <div id="scTestResult" style="margin-top:10px;font-size:0.75rem;display:none"></div>
-            
-            <!-- Computer and Printer Selection -->
-            <div style="margin-top:16px">
-              <div class="input-label" style="margin-bottom:8px">Computer</div>
-              <select id="computerSelect" onchange="selectComputer()" style="padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.9rem;width:100%;margin-bottom:12px">
-                <option value="">Loading computers...</option>
-              </select>
-              
-              <div class="input-label" style="margin-bottom:8px">Printer</div>
-              <select id="printerSelect" onchange="selectPrinterFromDropdown()" style="padding:10px;background:var(--surface2);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.9rem;width:100%" disabled>
-                <option value="">Select a computer first...</option>
-              </select>
-              
-              <button class="connect-btn" id="testPrintBtn" onclick="printTestLabel()" style="font-size:0.82rem;padding:10px 16px;margin-top:12px;display:none">Print Test Label</button>
-            </div>
           </div>
 
           <!-- Google Sheets Config (shown when Google Sheets selected) -->
@@ -787,9 +772,27 @@
     </div>
   </div>
 
-  <!-- Step 2: Camera Scanner -->
+  <!-- Step 2: Printer Selection -->
   <div class="card">
-    <div class="card-label">02 — Camera Scanner</div>
+    <div class="card-label">02 — Printer Selection</div>
+    <div style="padding:16px;background:var(--surface2);border-radius:10px">
+      <div class="input-label" style="margin-bottom:8px">Computer</div>
+      <select id="computerSelect" onchange="selectComputer()" style="padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.9rem;width:100%;margin-bottom:12px">
+        <option value="">Loading computers...</option>
+      </select>
+      
+      <div class="input-label" style="margin-bottom:8px">Printer</div>
+      <select id="printerSelect" onchange="selectPrinterFromDropdown()" style="padding:10px;background:var(--surface);border:1px solid var(--border);border-radius:8px;color:var(--text);font-size:0.9rem;width:100%" disabled>
+        <option value="">Select a computer first...</option>
+      </select>
+      
+      <button class="connect-btn" id="testPrintBtn" onclick="printTestLabel()" style="font-size:0.82rem;padding:10px 16px;margin-top:12px;display:none">Print Test Label</button>
+    </div>
+  </div>
+
+  <!-- Step 3: Camera Scanner -->
+  <div class="card">
+    <div class="card-label">03 — Camera Scanner</div>
     <div class="camera-wrapper" id="cameraWrapper">
       <div class="camera-placeholder" id="cameraPlaceholder">
         <svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.5">
@@ -2301,44 +2304,52 @@ showTextSelectionList();
 
   async function generateTestLabelPDF() {
     const { jsPDF } = window.jspdf;
+    
+    // Use points (72 per inch)
+    const INCH = 72;
+    const LABEL_W = 2.25 * INCH;  // 162 pt
+    const LABEL_H = 1.25 * INCH;  // 90 pt
+    
     const doc = new jsPDF({
-      orientation: 'landscape',  // Changed to landscape
-      unit: 'in',
-      format: [2.25, 1.25] // Swapped dimensions for landscape
+      orientation: 'landscape',
+      unit: 'pt',
+      format: [LABEL_W, LABEL_H],
+      compress: true
     });
     
     // Generate barcode as image
     const canvas = document.createElement('canvas');
     JsBarcode(canvas, 'TEST123', {
       format: 'CODE128',
-      width: 2,
-      height: 40,
-      displayValue: false
+      width: 1.5,
+      height: 50,
+      displayValue: false,
+      margin: 0
     });
     const barcodeImg = canvas.toDataURL('image/png');
     
-    // Label dimensions (now landscape)
-    const width = 2.25;
-    const height = 1.25;
+    // Vertical text on right (rotated 90°)
+    doc.setFontSize(10);
+    doc.text('Scanner Test', LABEL_W - 12, 15, { angle: 90 });
     
-    // Add rotated text (vertical on right side)
+    // Product name (left)
+    doc.setFontSize(9);
+    doc.text('TEST LABEL', 8, 35);
+    
+    // Size (right, same line as product name)
+    doc.setFontSize(12);
+    doc.text('S', LABEL_W - 18, 35);
+    
+    // Barcode (centered)
+    doc.addImage(barcodeImg, 'PNG', 40, 42, 80, 30);
+    
+    // ProductID (bottom left)
     doc.setFontSize(8);
-    doc.text('TEST LABEL', width - 0.15, height - 0.3, { angle: 90 });
+    doc.text('TEST123', 40, 82);
     
-    // Product name and size (horizontal)
-    doc.setFontSize(7);
-    doc.text('Scanner Test', 0.1, 0.8);
-    doc.text('S', width - 0.2, 0.8);
+    // Price (bottom right)
+    doc.text('$0.00', LABEL_W - 35, 82);
     
-    // Barcode
-    doc.addImage(barcodeImg, 'PNG', 0.2, 1.0, 0.8, 0.3);
-    
-    // ProductID and Price
-    doc.setFontSize(6);
-    doc.text('TEST123', 0.2, 1.35);
-    doc.text('$0.00', width - 0.4, 1.35);
-    
-    // Return base64
     return doc.output('datauristring').split(',')[1];
   }
 
@@ -2399,48 +2410,56 @@ showTextSelectionList();
 
   async function generateVariationLabelPDF(variation) {
     const { jsPDF } = window.jspdf;
+    
+    // Use points (72 per inch)
+    const INCH = 72;
+    const LABEL_W = 2.25 * INCH;  // 162 pt
+    const LABEL_H = 1.25 * INCH;  // 90 pt
+    
     const doc = new jsPDF({
-      orientation: 'landscape',  // Changed to landscape
-      unit: 'in',
-      format: [2.25, 1.25]  // Swapped dimensions
+      orientation: 'landscape',
+      unit: 'pt',
+      format: [LABEL_W, LABEL_H],
+      compress: true
     });
     
     // Generate barcode
     const canvas = document.createElement('canvas');
     JsBarcode(canvas, variation.ProductID, {
       format: 'CODE128',
-      width: 2,
-      height: 40,
-      displayValue: false
+      width: 1.5,
+      height: 50,
+      displayValue: false,
+      margin: 0
     });
     const barcodeImg = canvas.toDataURL('image/png');
-    
-    // Label dimensions (now landscape)
-    const width = 2.25;
-    const height = 1.25;
     
     // Get data
     const ebayTitle = variation.eBayTopTitle || 'PRODUCT TITLE';
     const price = variation.ListPrice || 0;
     
-    // Add rotated text (vertical on right side) - eBayTopTitle
-    doc.setFontSize(7);
-    const titleLines = doc.splitTextToSize(ebayTitle, height - 0.4);
-    doc.text(titleLines, width - 0.12, 0.2, { angle: 90 });
+    // Vertical text on right (eBayTopTitle rotated 90°)
+    doc.setFontSize(8);
+    const titleLines = doc.splitTextToSize(ebayTitle, LABEL_H - 20);
+    doc.text(titleLines, LABEL_W - 12, 15, { angle: 90 });
     
-    // Product name (left) and size (right) on same line
-    doc.setFontSize(7);
-    doc.text(variation.ProductName || '', 0.08, 0.75);
-    doc.setFontSize(9);
-    doc.text(variation.Size || '', width - 0.25, 0.75);
+    // Product name (left)
+    doc.setFontSize(8);
+    doc.text(variation.ProductName || '', 8, 35);
     
-    // Barcode
-    doc.addImage(barcodeImg, 'PNG', 0.15, 0.95, 0.9, 0.35);
+    // Size (right, same line)
+    doc.setFontSize(12);
+    doc.text(variation.Size || '', LABEL_W - 18, 35);
     
-    // ProductID (left) and Price (right) on same line
-    doc.setFontSize(6);
-    doc.text(variation.ProductID, 0.15, 1.38);
-    doc.text(`$${Number(price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, width - 0.5, 1.38);
+    // Barcode (centered)
+    doc.addImage(barcodeImg, 'PNG', 40, 42, 80, 30);
+    
+    // ProductID (bottom left)
+    doc.setFontSize(8);
+    doc.text(variation.ProductID, 40, 82);
+    
+    // Price (bottom right)
+    doc.text(`$${Number(price).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`, LABEL_W - 40, 82);
     
     return doc.output('datauristring').split(',')[1];
   }
